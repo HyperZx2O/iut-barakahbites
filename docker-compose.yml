@@ -1,0 +1,81 @@
+version: "3.8"
+services:
+  identity-provider:
+    build: ./services/identity-provider
+    container_name: identity-provider
+    ports:
+      - "3001:3001"
+    environment:
+      - JWT_SECRET=supersecret
+    depends_on:
+      - redis
+      - db
+  order-gateway:
+    build: ./services/order-gateway
+    container_name: order-gateway
+    ports:
+      - "3002:3002"
+    environment:
+      - JWT_SECRET=supersecret
+      - REDIS_URL=redis://redis:6379
+      - STOCK_SERVICE_URL=http://stock-service:3003
+      - KITCHEN_QUEUE_URL=http://kitchen-queue:3004
+    depends_on:
+      - redis
+      - stock-service
+      - kitchen-queue
+  stock-service:
+    build: ./services/stock-service
+    container_name: stock-service
+    ports:
+      - "3003:3003"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/stock
+    depends_on:
+      - db
+  kitchen-queue:
+    build: ./services/kitchen-queue
+    container_name: kitchen-queue
+    ports:
+      - "3004:3004"
+    depends_on:
+      - redis
+  notification-hub:
+    build: ./services/notification-hub
+    container_name: notification-hub
+    ports:
+      - "3005:3005"
+    depends_on:
+      - redis
+  student-ui:
+    build: ./frontend/student-ui
+    container_name: student-ui
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://order-gateway:3002
+  admin-dashboard:
+    build: ./frontend/admin-dashboard
+    container_name: admin-dashboard
+    ports:
+      - "5174:5174"
+    environment:
+      - VITE_API_URL=http://order-gateway:3002
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=stock
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+volumes:
+  db-data:
