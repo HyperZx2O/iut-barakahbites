@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: devsprint
       POSTGRES_DB: cafeteria
     ports:
-      - "5432:5432"
+      - "54320:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -35,7 +35,7 @@ services:
     build: ./services/identity-provider
     container_name: identity-provider
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/health" ]
       interval: 10s
       timeout: 5s
       retries: 3

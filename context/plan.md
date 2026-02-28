@@ -4,9 +4,9 @@
 
 - [X] Phase 1: Project Setup & Infrastructure
 - [X] Phase 2: Identity Provider Service
-- [ ] Phase 3: Order Gateway Service
-- [ ] Phase 4: Stock Service
-- [ ] Phase 5: Kitchen Queue Service
+- [X] Phase 3: Order Gateway Service
+- [X] Phase 4: Stock Service
+- [X] Phase 5: Kitchen Queue Service
 - [ ] Phase 6: Notification Hub Service
 - [ ] Phase 7: Frontend UIs (Student UI & Admin Dashboard)
 - [ ] Phase 8: CI/CD Pipeline & Testing
