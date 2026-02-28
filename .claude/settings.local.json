@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(docker compose:*)",
+      "Bash(git add:*)",
+      "Bash(printf \\\\nvolumes:\\\\n  db-data:\\\\n:*)",
+      "Bash(curl:*)",
+      "Bash(cd:*)"
+    ]
+  }
+}

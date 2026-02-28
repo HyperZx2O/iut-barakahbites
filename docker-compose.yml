@@ -1,81 +1,144 @@
-version: "3.8"
+version: '3.9'
+
 services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: devsprint
+      POSTGRES_PASSWORD: devsprint
+      POSTGRES_DB: cafeteria
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U devsprint" ]
+      interval: 5s
+      retries: 5
+    networks:
+      - cafeteria-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      retries: 5
+    networks:
+      - cafeteria-net
+
   identity-provider:
     build: ./services/identity-provider
     container_name: identity-provider
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     ports:
       - "3001:3001"
     environment:
-      - JWT_SECRET=supersecret
+      JWT_SECRET: supersecretjwtkey
+      DATABASE_URL: postgres://devsprint:devsprint@postgres:5432/cafeteria
+      REDIS_URL: redis://redis:6379
     depends_on:
-      - redis
-      - db
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cafeteria-net
+
   order-gateway:
     build: ./services/order-gateway
     container_name: order-gateway
     ports:
       - "3002:3002"
     environment:
-      - JWT_SECRET=supersecret
-      - REDIS_URL=redis://redis:6379
-      - STOCK_SERVICE_URL=http://stock-service:3003
-      - KITCHEN_QUEUE_URL=http://kitchen-queue:3004
+      JWT_SECRET: supersecretjwtkey
+      REDIS_URL: redis://redis:6379
+      STOCK_SERVICE_URL: http://stock-service:3003
+      KITCHEN_QUEUE_URL: http://kitchen-queue:3004
     depends_on:
       - redis
-      - stock-service
-      - kitchen-queue
+      - identity-provider
+    networks:
+      - cafeteria-net
+
   stock-service:
     build: ./services/stock-service
     container_name: stock-service
     ports:
       - "3003:3003"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/stock
+      DATABASE_URL: postgres://devsprint:devsprint@postgres:5432/cafeteria
+      REDIS_URL: redis://redis:6379
     depends_on:
-      - db
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cafeteria-net
+
   kitchen-queue:
     build: ./services/kitchen-queue
     container_name: kitchen-queue
     ports:
       - "3004:3004"
+    environment:
+      REDIS_URL: redis://redis:6379
+      NOTIFICATION_HUB_URL: http://notification-hub:3005
     depends_on:
       - redis
+    networks:
+      - cafeteria-net
+
   notification-hub:
     build: ./services/notification-hub
     container_name: notification-hub
     ports:
       - "3005:3005"
+    environment:
+      REDIS_URL: redis://redis:6379
     depends_on:
       - redis
+    networks:
+      - cafeteria-net
+
   student-ui:
     build: ./frontend/student-ui
     container_name: student-ui
     ports:
-      - "5173:5173"
+      - "5183:5173"
     environment:
-      - VITE_API_URL=http://order-gateway:3002
+      VITE_GATEWAY_URL: http://localhost:3002
+      VITE_NOTIFICATION_URL: http://localhost:3005
+      VITE_AUTH_URL: http://localhost:3001
+    networks:
+      - cafeteria-net
+
   admin-dashboard:
     build: ./frontend/admin-dashboard
     container_name: admin-dashboard
     ports:
-      - "5174:5174"
+      - "5184:5174"
     environment:
-      - VITE_API_URL=http://order-gateway:3002
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-  db:
-    image: postgres:15-alpine
-    container_name: db
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=stock
-    ports:
-      - "5432:5432"
-    volumes:
-      - db-data:/var/lib/postgresql/data
+      VITE_IDENTITY_URL: http://localhost:3001
+      VITE_GATEWAY_URL: http://localhost:3002
+      VITE_STOCK_URL: http://localhost:3003
+      VITE_KITCHEN_URL: http://localhost:3004
+      VITE_NOTIFICATION_URL: http://localhost:3005
+    networks:
+      - cafeteria-net
+
+networks:
+  cafeteria-net:
+    driver: bridge
+
 volumes:
-  db-data:
+  postgres_data:

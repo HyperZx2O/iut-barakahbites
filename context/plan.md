@@ -2,8 +2,8 @@
 
 ## Checklist of Phases
 
-- [ ] Phase 1: Project Setup & Infrastructure
-- [ ] Phase 2: Identity Provider Service
+- [X] Phase 1: Project Setup & Infrastructure
+- [X] Phase 2: Identity Provider Service
 - [ ] Phase 3: Order Gateway Service
 - [ ] Phase 4: Stock Service
 - [ ] Phase 5: Kitchen Queue Service
