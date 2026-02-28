@@ -5,6 +5,16 @@ const { setKilled } = require('./worker');
 
 const app = express();
 app.use(express.json());
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL']);
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', (req, res) => res.json(getMetrics()));
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL']);
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', (req, res) => res.json(getMetrics()));
 
 // In‑memory flag for chaos kill/revive
 let isKilled = false;
@@ -145,12 +155,12 @@ app.post('/queue/order', async (req, res) => {
   // Persist basic kitchen status for this order
   const orderKey = `orders:${orderId}`;
   const createdAt = new Date().toISOString();
-  await connection.hSet(orderKey, {
-    orderId,
-    studentId,
-    status: 'IN_KITCHEN',
-    createdAt,
-  });
+  await connection.hset(orderKey,
+    'orderId', orderId,
+    'studentId', studentId,
+    'status', 'IN_KITCHEN',
+    'createdAt', createdAt
+  );
   await connection.expire(orderKey, 3600);
 
   res.status(202).json({
@@ -164,7 +174,7 @@ app.post('/queue/order', async (req, res) => {
 app.get('/queue/status/:orderId', async (req, res) => {
   const { orderId } = req.params;
   const key = `orders:${orderId}`;
-  const data = await connection.hGetAll(key);
+  const data = await connection.hgetall(key);
   if (!data || Object.keys(data).length === 0) {
     return res.status(404).json({ error: 'Order not found' });
   }

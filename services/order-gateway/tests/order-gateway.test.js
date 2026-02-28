@@ -1,6 +1,13 @@
 const request = require('supertest');
 const http = require('http');
 const { EventEmitter } = require('events');
+
+jest.mock('ioredis', () => require('ioredis-mock'));
+
+// ★ Capture the REAL http.request BEFORE any jest.spyOn touches it.
+//   This avoids infinite recursion when falling through to the real implementation.
+const _realHttpRequest = http.request;
+
 const app = require('../src/app');
 const { signToken } = require('../../identity-provider/src/auth');
 
@@ -10,6 +17,56 @@ let httpRequestSpy;
 
 const validToken = signToken({ sub: '210042101', name: 'Test User' });
 const authHeader = `Bearer ${validToken}`;
+
+/**
+ * Helper: creates a mock ClientRequest that emits data/end on the
+ * response after the callback has registered its listeners.
+ */
+function makeFakeReq(statusCode, body, callback) {
+  const req = new EventEmitter();
+  req.write = jest.fn();
+  req.end = jest.fn(() => {
+    const res = new EventEmitter();
+    res.statusCode = statusCode;
+
+    // 1. Call callback so the caller can attach res.on('data') / res.on('end')
+    if (typeof callback === 'function') callback(res);
+
+    // 2. Emit events on the next tick so listeners are already registered
+    process.nextTick(() => {
+      res.emit('data', JSON.stringify(body));
+      res.emit('end');
+    });
+  });
+  return req;
+}
+
+/**
+ * Install the default http.request spy.
+ * Intercepts calls aimed at stock-service (port 3003) and kitchen-queue (port 3004).
+ * Everything else (e.g. supertest's own calls) falls through to the real http.request.
+ */
+function installDefaultMock(stockStatus = 200, stockBody = undefined) {
+  const defaultStockBody = stockBody || { itemId: 'test-item', remaining: 10, decremented: 1, newStock: 10 };
+
+  httpRequestSpy = jest.spyOn(http, 'request').mockImplementation((options, callback) => {
+    const port = String(options.port || '');
+    const host = String(options.hostname || '');
+
+    const isStock = port === '3003' || host.includes('stock-service');
+    const isKitchen = port === '3004' || host.includes('kitchen-queue');
+
+    if (isStock) {
+      return makeFakeReq(stockStatus, defaultStockBody, callback);
+    }
+    if (isKitchen) {
+      return makeFakeReq(200, { status: 'IN_KITCHEN' }, callback);
+    }
+
+    // ★ Fall through to the REAL http.request (captured before spying)
+    return _realHttpRequest.call(http, options, callback);
+  });
+}
 
 beforeAll(() => {
   server = http.createServer(app).listen(0);
@@ -23,27 +80,7 @@ beforeEach(async () => {
     await redisClient.del(...keys);
   }
 
-  // Mock http.request to simulate Stock and Kitchen services
-  httpRequestSpy = jest.spyOn(http, 'request').mockImplementation((options, callback) => {
-    const req = new EventEmitter();
-    req.write = jest.fn();
-    req.end = jest.fn(() => {
-      const res = new EventEmitter();
-      res.statusCode = 200;
-
-      // Routing logic for the mock based on the destination hostname/port
-      if (options.port === '3003' || (options.hostname && options.hostname.includes('stock-service'))) {
-        const itemBody = { itemId: 'test-item', remaining: 10, decremented: 1, newStock: 10 };
-        res.emit('data', JSON.stringify(itemBody));
-      } else if (options.port === '3004' || (options.hostname && options.hostname.includes('kitchen-queue'))) {
-        res.emit('data', JSON.stringify({ status: 'IN_KITCHEN' }));
-      }
-
-      res.emit('end');
-      if (typeof callback === 'function') callback(res);
-    });
-    return req;
-  });
+  installDefaultMock();
 });
 
 afterEach(() => {
@@ -51,7 +88,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  server.close();
+  if (server) server.close();
   if (redisClient && typeof redisClient.disconnect === 'function') {
     redisClient.disconnect();
   }
@@ -92,7 +129,12 @@ describe('Order Gateway API', () => {
 
       const cached = await redisClient.get('stock:item-1');
       expect(cached).toBe('10'); // Based on mock newStock: 10
-      expect(httpRequestSpy).toHaveBeenCalled();
+
+      // At least one call should have targeted stock-service
+      const stockCalls = httpRequestSpy.mock.calls.filter(
+        (c) => String(c[0].port) === '3003' || (c[0].hostname || '').includes('stock-service')
+      );
+      expect(stockCalls.length).toBeGreaterThan(0);
     });
 
     test('Cache Hit (Zero) - returns 409 without calling Stock Service', async () => {
@@ -107,29 +149,16 @@ describe('Order Gateway API', () => {
       expect(res.body.error).toContain('Item out of stock');
 
       // Ensure the Stock Service was NOT called
-      const wasStockCalled = httpRequestSpy.mock.calls.some((call) =>
-        call[0].port === '3003' || (call[0].hostname && call[0].hostname.includes('stock-service'))
+      const wasStockCalled = httpRequestSpy.mock.calls.some(
+        (c) => String(c[0].port) === '3003' || (c[0].hostname || '').includes('stock-service')
       );
       expect(wasStockCalled).toBe(false);
     });
 
     test('Stock Service Failure (409) - updates cache to 0', async () => {
-      // Override mock specifically for this test to return 409
+      // Re-install the mock with a 409 status for the stock service
       jest.restoreAllMocks();
-      httpRequestSpy = jest.spyOn(http, 'request').mockImplementation((options, callback) => {
-        const req = new EventEmitter();
-        req.write = jest.fn();
-        req.end = jest.fn(() => {
-          const res = new EventEmitter();
-          if (options.port === '3003' || (options.hostname && options.hostname.includes('stock-service'))) {
-            res.statusCode = 409;
-            res.emit('data', JSON.stringify({ error: 'Insufficient stock' }));
-          }
-          res.emit('end');
-          if (typeof callback === 'function') callback(res);
-        });
-        return req;
-      });
+      installDefaultMock(409, { error: 'Insufficient stock' });
 
       const res = await request(server)
         .post('/order')
@@ -157,7 +186,7 @@ describe('Order Gateway API', () => {
 
       expect(res1.statusCode).toBe(202);
 
-      // Clear HTTP spy to verify no new calls are made
+      // Clear HTTP spy call history
       httpRequestSpy.mockClear();
 
       // Second Request with same key
@@ -169,7 +198,13 @@ describe('Order Gateway API', () => {
 
       expect(res2.statusCode).toBe(202);
       expect(res2.body.message).toBe('Order received. Processing...');
-      expect(httpRequestSpy).not.toHaveBeenCalled();
+
+      // Verify no EXTERNAL service calls were made (supertest itself uses http.request, so filter)
+      const externalCalls = httpRequestSpy.mock.calls.filter((c) => {
+        const port = String(c[0].port || '');
+        return port === '3003' || port === '3004';
+      });
+      expect(externalCalls).toHaveLength(0);
     });
   });
 
@@ -183,8 +218,8 @@ describe('Order Gateway API', () => {
       // Wait slightly for async fire-and-forget promise to resolve
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      const kitchenCalled = httpRequestSpy.mock.calls.some((call) =>
-        call[0].port === '3004' || (call[0].hostname && call[0].hostname.includes('kitchen-queue'))
+      const kitchenCalled = httpRequestSpy.mock.calls.some(
+        (c) => String(c[0].port) === '3004' || (c[0].hostname || '').includes('kitchen-queue')
       );
       expect(kitchenCalled).toBe(true);
     });

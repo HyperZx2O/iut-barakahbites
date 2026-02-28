@@ -1,7 +1,11 @@
 const request = require('supertest');
 const http = require('http');
-const app = require('../src/app');
 
+jest.mock('ioredis', () => require('ioredis-mock'));
+
+process.env.DATABASE_URL = 'postgres://devsprint:devsprint@localhost:54320/cafeteria';
+
+const app = require('../src/app');
 let server;
 
 beforeAll(async () => {
@@ -22,7 +26,7 @@ beforeAll(async () => {
 afterAll(async () => {
   const db = require('../src/db');
   const { redisClient } = require('../src/app');
-  server.close();
+  if (server) server.close();
   await db.pool.end();
   redisClient.disconnect();
 });

@@ -11,23 +11,20 @@ const { isAlive } = require('./serviceState');
 const app = express();
 app.use(helmet());
 app.use(express.json());
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL']);
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', (req, res) => res.json(getMetrics()));
 
 // Redis client for rate limiting
 const redisClient = new Redis(REDIS_URL);
 
-// Request timing middleware (before all routes)
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    recordRequest();
-    recordLatency(duration);
-    if (res.statusCode >= 500) {
-      recordFailure();
-    }
-  });
-  next();
-});
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL']);
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', (req, res) => res.json(getMetrics()));
 
 // Chaos middleware — safe routes are always accessible per spec §3.5
 const SAFE_ROUTES = ['/admin/kill', '/admin/revive', '/health'];

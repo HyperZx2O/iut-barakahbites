@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">90% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/10</span>
+                <span class='fraction'>9/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>2/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">90% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/10</span>
+                <span class='fraction'>9/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -95,55 +95,55 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const db = require('./db');
 &nbsp;
 // Create a new student. Returns the student object on success, or null if duplicate.
-async function <span class="fstat-no" title="function not covered" >createStudent(</span>studentId, name, passwordHash) {
-<span class="cstat-no" title="statement not covered" >    try {</span>
-        const result = <span class="cstat-no" title="statement not covered" >await db.query(</span>
+async function createStudent(studentId, name, passwordHash) {
+    try {
+        const result = await db.query(
             'INSERT INTO students (student_id, name, password_hash) VALUES ($1, $2, $3) RETURNING id, student_id, name, created_at',
             [studentId, name, passwordHash]
         );
-<span class="cstat-no" title="statement not covered" >        return result.rows[0];</span>
+        return result.rows[0];
     } catch (err) {
-<span class="cstat-no" title="statement not covered" >        if (err.code === '23505') {</span>
-<span class="cstat-no" title="statement not covered" >            return null; </span>// duplicate student_id
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (err.code === '23505') {
+            return null; // duplicate student_id
         }
 <span class="cstat-no" title="statement not covered" >        throw err;</span>
     }
 }
 &nbsp;
 // Find a student by student_id. Returns null if not found.
-async function <span class="fstat-no" title="function not covered" >findStudent(</span>studentId) {
-    const result = <span class="cstat-no" title="statement not covered" >await db.query(</span>
+async function findStudent(studentId) {
+    const result = await db.query(
         'SELECT id, student_id, name, password_hash FROM students WHERE student_id = $1',
         [studentId]
     );
-<span class="cstat-no" title="statement not covered" >    return result.rows[0] || null;</span>
+    return result.rows[0] || <span class="branch-1 cbranch-no" title="branch not covered" >null;</span>
 }
 &nbsp;
 module.exports = { createStudent, findStudent };
@@ -154,7 +154,7 @@ module.exports = { createStudent, findStudent };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-27T18:13:39.017Z
+                at 2026-02-28T14:31:47.423Z
             </div>
         <script src="../prettify.js"></script>
         <script>

@@ -25,12 +25,12 @@ const worker = new Worker(
 
     // Update kitchen status to READY
     const orderKey = `orders:${orderId}`;
-    await connection.hSet(orderKey, {
-      orderId,
-      studentId,
-      status: 'READY',
-      readyAt: new Date().toISOString(),
-    });
+    await connection.hset(orderKey,
+      'orderId', orderId,
+      'studentId', studentId,
+      'status', 'READY',
+      'readyAt', new Date().toISOString()
+    );
     await connection.expire(orderKey, 3600);
 
     // Notify Notification Hub

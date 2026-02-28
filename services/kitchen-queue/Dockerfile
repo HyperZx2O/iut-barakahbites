@@ -1,7 +1,7 @@
-FROM node:20-alpine
+FROM cafeteria-base
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --only=production
 COPY . .
 EXPOSE 3004
 CMD ["node", "src/index.js"]

@@ -6,10 +6,10 @@ const { URL } = require('url');
 const jwt = require('jsonwebtoken');
 const { randomUUID } = require('crypto');
 
-const { JWT_SECRET, REDIS_URL, STOCK_SERVICE_URL, KITCHEN_QUEUE_URL } = require('./config');
+
 
 // Initialize Redis client with basic error handling (fail‑open)
-const redisClient = new Redis(REDIS_URL);
+const redisClient = new Redis(process.env.REDIS_URL);
 redisClient.on('error', (err) => {
   console.error('Redis client error (connection may be unavailable):', err.message);
 });
@@ -18,44 +18,16 @@ const app = express();
 app.use(helmet());
 app.use(express.json());
 
-// ---- Metrics & Chaos State ----
-const startTime = Date.now();
-const latencies = [];
-const MAX_LATENCY_SAMPLES = 1000;
-let totalRequests = 0;
-let failedRequests = 0;
-let totalLatencyMs = 0;
-let totalOrders = 0;
-const orderTimestamps = [];
+
+// Existing metrics endpoint – replace body with shared data
+app.get('/metrics', (req, res) => {
+  res.json({ service: 'order-gateway', status: 'ok' });
+});
+
 let isKilled = false;
 const SAFE_ROUTES = ['/admin/kill', '/admin/revive', '/health'];
 
-// Request timing + metrics
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    totalRequests += 1;
-    totalLatencyMs += duration;
-    latencies.push(duration);
-    if (latencies.length > MAX_LATENCY_SAMPLES) {
-      latencies.shift();
-    }
-    if (res.statusCode >= 500) {
-      failedRequests += 1;
-    }
-    if (req.method === 'POST' && req.path === '/order' && res.statusCode < 500) {
-      totalOrders += 1;
-      const now = Date.now();
-      orderTimestamps.push(now);
-      // Trim to last 60s
-      while (orderTimestamps.length > 0 && orderTimestamps[0] < now - 60000) {
-        orderTimestamps.shift();
-      }
-    }
-  });
-  next();
-});
+// Deprecated per‑service metrics middleware removed – shared metrics now applied via ../shared/metrics.js
 
 // Chaos middleware – keep admin + health always reachable
 app.use((req, res, next) => {

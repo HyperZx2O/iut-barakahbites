@@ -6,6 +6,16 @@ const morgan = require('morgan');
 
 const app = express();
 app.use(express.json());
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL','DATABASE_URL']);
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', (req, res) => res.json(getMetrics()));
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL','DATABASE_URL']);
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+app.use(metricsMiddleware);
+app.get('/metrics', (req, res) => res.json(getMetrics()));
 if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('dev'));
 }
