@@ -30,11 +30,13 @@ router.post('/login', async (req, res) => {
   }
   const student = await findStudent(studentId);
   if (!student) {
+    console.log(`[DEBUG] Login failed: Student ID ${studentId} not found in DB`);
     increment('failures');
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   const match = await bcrypt.compare(password, student.password_hash);
   if (!match) {
+    console.log(`[DEBUG] Login failed: Password mismatch for ${studentId}`);
     increment('failures');
     return res.status(401).json({ error: 'Invalid credentials' });
   }

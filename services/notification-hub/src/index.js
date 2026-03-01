@@ -7,6 +7,15 @@ const app = express();
 app.use(express.json());
 app.use(require('helmet')());
 
+// CORS config
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 // Redis client (using environment variable REDIS_URL or default)
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
@@ -17,18 +26,24 @@ app.use(metricsMiddleware);
 
 // Health endpoint – checks Redis connectivity
 app.get('/health', async (req, res) => {
-  if (!process.env.REDIS_URL) {
-    return res.json({ status: 'ok', service: 'notification-hub' });
-  }
+  const deps = { redis: 'ok' };
+  let status = 'ok';
   try {
     await redis.ping();
-    res.json({ status: 'ok', service: 'notification-hub' });
   } catch (err) {
-    res.status(503).json({ status: 'degraded', error: err.message, service: 'notification-hub' });
+    deps.redis = 'down';
+    status = 'degraded';
   }
+  const statusCode = status === 'ok' ? 200 : 503;
+  res.status(statusCode).json({
+    status,
+    service: 'notification-hub',
+    dependencies: deps,
+    uptime: getMetrics('notification-hub').uptime
+  });
 });
 
-app.get('/metrics', (req, res) => res.json(getMetrics()));
+app.get('/metrics', (req, res) => res.json(getMetrics('notification-hub')));
 
 // Admin chaos endpoints – similar to other services (kill/revive flag)
 let isKilled = false;

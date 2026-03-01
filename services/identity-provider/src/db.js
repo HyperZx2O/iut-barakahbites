@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const { DATABASE_URL } = require('./config');
+const bcrypt = require('bcrypt');
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -29,13 +30,19 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_login_attempts_student_time
     ON login_attempts(student_id, attempted_at);
   `);
-}
 
-init().catch(err => {
-  console.error('Database initialization error:', err);
-});
+  // Seed default student for spec compliance
+  // Password is 'password123'
+  const defaultHash = await bcrypt.hash('password123', 10);
+  await pool.query(
+    'INSERT INTO students (student_id, name, password_hash) VALUES ($1, $2, $3) ON CONFLICT (student_id) DO UPDATE SET password_hash = EXCLUDED.password_hash',
+    ['210042101', 'Ahmed Rahman', defaultHash]
+  );
+  console.log('[SEED] Default student 210042101 seeded/updated successfully');
+}
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool,
+  init,
 };

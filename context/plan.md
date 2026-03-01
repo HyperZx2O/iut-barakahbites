@@ -7,7 +7,7 @@
 - [X] Phase 3: Order Gateway Service
 - [X] Phase 4: Stock Service
 - [X] Phase 5: Kitchen Queue Service
-- [ ] Phase 6: Notification Hub Service
+- [X] Phase 6: Notification Hub Service
 - [ ] Phase 7: Frontend UIs (Student UI & Admin Dashboard)
 - [ ] Phase 8: CI/CD Pipeline & Testing
 - [ ] Phase 9: Bonus Features & Cloud Deployment

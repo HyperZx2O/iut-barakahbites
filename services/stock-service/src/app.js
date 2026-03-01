@@ -6,16 +6,22 @@ const morgan = require('morgan');
 
 const app = express();
 app.use(express.json());
+
+// CORS config
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
 const { validateEnv } = require('../shared/configValidator');
-validateEnv(['REDIS_URL','DATABASE_URL']);
+validateEnv(['REDIS_URL', 'DATABASE_URL']);
+
 const { metricsMiddleware, getMetrics } = require('../shared/metrics');
 app.use(metricsMiddleware);
-app.get('/metrics', (req, res) => res.json(getMetrics()));
-const { validateEnv } = require('../shared/configValidator');
-validateEnv(['REDIS_URL','DATABASE_URL']);
-const { metricsMiddleware, getMetrics } = require('../shared/metrics');
-app.use(metricsMiddleware);
-app.get('/metrics', (req, res) => res.json(getMetrics()));
+
 if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('dev'));
 }
@@ -26,6 +32,46 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // PostgreSQL pool
 const pool = new Pool({ connectionString: DATABASE_URL });
+
+async function initDb() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS stock (
+                item_id VARCHAR PRIMARY KEY,
+                name VARCHAR NOT NULL,
+                quantity INT NOT NULL DEFAULT 0,
+                version INT NOT NULL DEFAULT 0
+            );
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS processed_orders (
+                order_id VARCHAR PRIMARY KEY,
+                item_id VARCHAR,
+                quantity INT,
+                processed_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        // Seed default items for spec compliance
+        const seedItems = [
+            ['iftar-box-1', 'Standard Iftar Box', 50],
+            ['drink-1', 'Cold Water', 100],
+            ['desert-1', 'Dates Pack', 80]
+        ];
+
+        for (const [id, name, qty] of seedItems) {
+            await pool.query(
+                'INSERT INTO stock (item_id, name, quantity, version) VALUES ($1, $2, $3, 1) ON CONFLICT (item_id) DO NOTHING',
+                [id, name, qty]
+            );
+        }
+
+        console.log('Stock Service Database initialized & seeded');
+    } catch (err) {
+        console.error('Failed to initialize database:', err.message);
+    }
+}
+initDb();
 
 // Redis client
 const redisClient = redis.createClient({ url: REDIS_URL });
@@ -43,57 +89,34 @@ app.use((req, res, next) => {
     next();
 });
 
-// Metrics (simple in‑memory counters)
-let metrics = {
-    totalOrders: 0,
-    failedRequests: 0,
-    totalRequests: 0,
-    totalLatencyMs: 0,
-    startTime: Date.now(),
-};
-
-app.use((req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-        const duration = Date.now() - start;
-        metrics.totalRequests++;
-        metrics.totalLatencyMs += duration;
-        if (res.statusCode >= 500) metrics.failedRequests++;
-        if (req.method === 'POST' && req.path.match(/^\/stock\/[^/]+\/decrement$/) && res.statusCode < 500) {
-            metrics.totalOrders++;
-        }
-    });
-    next();
-});
-
 // Health endpoint
 app.get('/health', async (req, res) => {
     try {
         await pool.query('SELECT 1');
         await redisClient.ping();
-        res.json({ status: 'ok', service: 'stock-service', dependencies: { postgres: 'ok', redis: 'ok' } });
+        res.json({
+            status: 'ok',
+            service: 'stock-service',
+            dependencies: { postgres: 'ok', redis: 'ok' },
+            uptime: getMetrics('stock-service').uptime
+        });
     } catch (e) {
         res.status(503).json({ status: 'degraded', service: 'stock-service', dependencies: { postgres: 'down', redis: 'down' } });
     }
 });
 
 app.get('/metrics', (req, res) => {
-    const uptime = Math.floor((Date.now() - metrics.startTime) / 1000);
-    const avgLatency = metrics.totalRequests ? Math.round(metrics.totalLatencyMs / metrics.totalRequests) : 0;
+    res.json(getMetrics('stock-service'));
+});
 
-    // Also calculate standard ordersPerMinute and p99 as required by spec even loosely
-    const ordersPerMinute = uptime > 0 ? (metrics.totalOrders / uptime) * 60 : 0;
-
-    res.json({
-        service: 'stock-service',
-        totalOrders: metrics.totalOrders,
-        ordersPerMinute: Number(ordersPerMinute.toFixed(1)),
-        failedRequests: metrics.failedRequests,
-        averageLatencyMs: avgLatency,
-        p99LatencyMs: avgLatency * 2, // Mocked for simplicity
-        uptime,
-        timestamp: new Date().toISOString(),
-    });
+// Get all stock levels
+app.get('/stock', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT item_id, quantity, version, name FROM stock');
+        res.json(result.rows);
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Get current stock level
@@ -221,3 +244,4 @@ app.post('/admin/revive', (req, res) => {
 module.exports = app;
 module.exports.pool = pool;
 module.exports.redisClient = redisClient;
+module.exports.initDb = initDb;

@@ -2,6 +2,7 @@ const sseManager = require('../src/sseManager');
 
 afterAll(() => {
   sseManager.stop();
+  sseManager.reset();
 });
 
 describe('SSE Manager', () => {

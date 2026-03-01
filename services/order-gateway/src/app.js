@@ -6,7 +6,13 @@ const { URL } = require('url');
 const jwt = require('jsonwebtoken');
 const { randomUUID } = require('crypto');
 
+const { JWT_SECRET, REDIS_URL, STOCK_SERVICE_URL, KITCHEN_QUEUE_URL, NOTIFICATION_HUB_URL } = require('./config');
 
+const { validateEnv } = require('../shared/configValidator');
+validateEnv(['REDIS_URL', 'JWT_SECRET', 'STOCK_SERVICE_URL', 'KITCHEN_QUEUE_URL', 'NOTIFICATION_HUB_URL']);
+
+const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+const { notifyHub } = require('../shared/notifier');
 
 // Initialize Redis client with basic error handling (fail‑open)
 const redisClient = new Redis(process.env.REDIS_URL);
@@ -18,10 +24,21 @@ const app = express();
 app.use(helmet());
 app.use(express.json());
 
+// CORS config
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization,idempotency-key');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+app.use(metricsMiddleware);
+
 
 // Existing metrics endpoint – replace body with shared data
 app.get('/metrics', (req, res) => {
-  res.json({ service: 'order-gateway', status: 'ok' });
+  res.json(getMetrics('order-gateway'));
 });
 
 let isKilled = false;
@@ -109,6 +126,10 @@ app.post('/order', jwtAuth, idempotency, async (req, res) => {
   }
 
   const studentId = req.user.sub || req.user.studentId;
+  const orderId = `ord_${randomUUID()}`;
+
+  // Notify INITIAL state
+  notifyHub(studentId, orderId, 'PENDING');
 
   // Cache‑first stock check
   const cacheKey = `stock:${itemId}`;
@@ -132,7 +153,7 @@ app.post('/order', jwtAuth, idempotency, async (req, res) => {
   };
   let stockResponse;
   try {
-    stockResponse = await httpRequest(stockOptions, { quantity, orderId: `ord-${randomUUID()}` });
+    stockResponse = await httpRequest(stockOptions, { quantity, orderId });
   } catch (err) {
     console.error('Error contacting Stock Service:', err.message);
     return res.status(502).json({ error: 'Failed to contact stock service' });
@@ -146,13 +167,15 @@ app.post('/order', jwtAuth, idempotency, async (req, res) => {
     return res.status(500).json({ error: errMsg });
   }
 
+  // Notify state change
+  notifyHub(studentId, orderId, 'STOCK_VERIFIED');
+
   // Update cache with new stock count if provided
   if (stockResponse.body && typeof stockResponse.body.newStock === 'number') {
     await redisClient.set(cacheKey, String(stockResponse.body.newStock), 'EX', 60);
   }
 
-  // Generate orderId and persist basic order state for lookup
-  const orderId = `ord_${randomUUID()}`;
+  // Persist basic order state for lookup
   const orderKey = `orders:${orderId}`;
   const createdAt = new Date().toISOString();
   try {
@@ -211,6 +234,27 @@ app.post('/order', jwtAuth, idempotency, async (req, res) => {
   return res.status(202).json(responseBody);
 });
 
+// GET /items – list items with stock count (spec §5 View 2)
+app.get('/items', async (req, res) => {
+  const stockUrl = new URL(`${STOCK_SERVICE_URL}/stock`);
+  const stockOptions = {
+    method: 'GET',
+    hostname: stockUrl.hostname,
+    port: stockUrl.port,
+    path: stockUrl.pathname,
+  };
+  try {
+    const stockResponse = await httpRequest(stockOptions);
+    if (stockResponse.statusCode === 200) {
+      return res.json(stockResponse.body);
+    }
+    return res.status(stockResponse.statusCode).json(stockResponse.body);
+  } catch (err) {
+    console.error('Error fetching items from stock service:', err.message);
+    return res.status(502).json({ error: 'Failed to fetch items' });
+  }
+});
+
 // GET /order/:orderId – retrieve cached order state
 app.get('/order/:orderId', async (req, res) => {
   const { orderId } = req.params;
@@ -239,41 +283,12 @@ app.get('/health', async (req, res) => {
     status = 'degraded';
   }
 
-  const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
   const statusCode = status === 'ok' ? 200 : 503;
   return res.status(statusCode).json({
     status,
     service: 'order-gateway',
     dependencies: deps,
-    uptime: uptimeSeconds,
-  });
-});
-
-// Metrics endpoint
-app.get('/metrics', (req, res) => {
-  const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
-  const avgLatency = totalRequests ? Math.round(totalLatencyMs / totalRequests) : 0;
-  const now = Date.now();
-  const recentOrders = orderTimestamps.filter((t) => t >= now - 60000);
-  const ordersPerMinute = uptimeSeconds > 0 ? (recentOrders.length * 60) / Math.max(1, (uptimeSeconds)) : 0;
-
-  // p99 latency
-  let p99 = 0;
-  if (latencies.length > 0) {
-    const sorted = [...latencies].sort((a, b) => a - b);
-    const idx = Math.ceil(sorted.length * 0.99) - 1;
-    p99 = sorted[Math.max(0, idx)];
-  }
-
-  return res.json({
-    service: 'order-gateway',
-    totalOrders,
-    ordersPerMinute: Number(ordersPerMinute.toFixed(1)),
-    failedRequests,
-    averageLatencyMs: avgLatency,
-    p99LatencyMs: p99,
-    uptime: uptimeSeconds,
-    timestamp: new Date().toISOString(),
+    uptime: getMetrics('order-gateway').uptime,
   });
 });
 

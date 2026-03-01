@@ -5,26 +5,29 @@ const { REDIS_URL } = require('./config');
 const authRoutes = require('./routes/auth');
 const monitorRoutes = require('./routes/monitor');
 const adminRoutes = require('./routes/admin');
-const { recordRequest, recordLatency, recordFailure } = require('./routes/monitor');
 const { isAlive } = require('./serviceState');
 
 const app = express();
 app.use(helmet());
 app.use(express.json());
+
+// CORS config
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 const { validateEnv } = require('../shared/configValidator');
-validateEnv(['REDIS_URL']);
-const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+validateEnv(['REDIS_URL', 'DATABASE_URL', 'JWT_SECRET']);
+
+const { metricsMiddleware } = require('../shared/metrics');
 app.use(metricsMiddleware);
-app.get('/metrics', (req, res) => res.json(getMetrics()));
 
 // Redis client for rate limiting
 const redisClient = new Redis(REDIS_URL);
-
-const { validateEnv } = require('../shared/configValidator');
-validateEnv(['REDIS_URL']);
-const { metricsMiddleware, getMetrics } = require('../shared/metrics');
-app.use(metricsMiddleware);
-app.get('/metrics', (req, res) => res.json(getMetrics()));
 
 // Chaos middleware — safe routes are always accessible per spec §3.5
 const SAFE_ROUTES = ['/admin/kill', '/admin/revive', '/health'];

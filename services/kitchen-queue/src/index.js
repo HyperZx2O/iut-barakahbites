@@ -5,56 +5,27 @@ const { setKilled } = require('./worker');
 
 const app = express();
 app.use(express.json());
+
+// CORS config
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 const { validateEnv } = require('../shared/configValidator');
-validateEnv(['REDIS_URL']);
+validateEnv(['REDIS_URL', 'NOTIFICATION_HUB_URL']);
+
 const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+const { notifyHub } = require('../shared/notifier');
+
 app.use(metricsMiddleware);
-app.get('/metrics', (req, res) => res.json(getMetrics()));
-const { validateEnv } = require('../shared/configValidator');
-validateEnv(['REDIS_URL']);
-const { metricsMiddleware, getMetrics } = require('../shared/metrics');
-app.use(metricsMiddleware);
-app.get('/metrics', (req, res) => res.json(getMetrics()));
 
 // In‑memory flag for chaos kill/revive
 let isKilled = false;
 const SAFE_ROUTES = ['/admin/kill', '/admin/revive', '/health'];
-
-// Metrics state
-const startTime = Date.now();
-let totalRequests = 0;
-let failedRequests = 0;
-let totalLatencyMs = 0;
-let totalOrders = 0;
-const latencies = [];
-const orderTimestamps = [];
-const MAX_LATENCY_SAMPLES = 1000;
-
-// Metrics middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    totalRequests += 1;
-    totalLatencyMs += duration;
-    latencies.push(duration);
-    if (latencies.length > MAX_LATENCY_SAMPLES) {
-      latencies.shift();
-    }
-    if (res.statusCode >= 500) {
-      failedRequests += 1;
-    }
-    if (req.method === 'POST' && req.path === '/queue/order' && res.statusCode < 500) {
-      totalOrders += 1;
-      const now = Date.now();
-      orderTimestamps.push(now);
-      while (orderTimestamps.length > 0 && orderTimestamps[0] < now - 60000) {
-        orderTimestamps.shift();
-      }
-    }
-  });
-  next();
-});
 
 // Chaos middleware – keep admin + health always reachable
 app.use((req, res, next) => {
@@ -74,41 +45,18 @@ app.get('/health', async (req, res) => {
     status = 'degraded';
     deps.redis = 'down';
   }
-  const uptime = Math.floor((Date.now() - startTime) / 1000);
   const statusCode = status === 'ok' ? 200 : 503;
   res.status(statusCode).json({
     status,
     service: 'kitchen-queue',
     dependencies: deps,
-    uptime,
+    uptime: getMetrics('kitchen-queue').uptime,
   });
 });
 
 // Metrics endpoint
 app.get('/metrics', (req, res) => {
-  const uptime = Math.floor((Date.now() - startTime) / 1000);
-  const avgLatency = totalRequests ? Math.round(totalLatencyMs / totalRequests) : 0;
-  const now = Date.now();
-  const recentOrders = orderTimestamps.filter((t) => t >= now - 60000);
-  const ordersPerMinute = uptime > 0 ? (recentOrders.length * 60) / Math.max(1, uptime) : 0;
-
-  let p99LatencyMs = 0;
-  if (latencies.length) {
-    const sorted = [...latencies].sort((a, b) => a - b);
-    const idx = Math.ceil(sorted.length * 0.99) - 1;
-    p99LatencyMs = sorted[Math.max(0, idx)];
-  }
-
-  res.json({
-    service: 'kitchen-queue',
-    totalOrders,
-    ordersPerMinute: Number(ordersPerMinute.toFixed(1)),
-    failedRequests,
-    averageLatencyMs: avgLatency,
-    p99LatencyMs,
-    uptime,
-    timestamp: new Date().toISOString(),
-  });
+  res.json(getMetrics('kitchen-queue'));
 });
 
 // Admin chaos endpoints
@@ -151,6 +99,9 @@ app.post('/queue/order', async (req, res) => {
   });
 
   await connection.set(idemKey, job.id, 'EX', 3600); // keep for 1h
+
+  // Notify state change
+  notifyHub(studentId, orderId, 'IN_KITCHEN');
 
   // Persist basic kitchen status for this order
   const orderKey = `orders:${orderId}`;

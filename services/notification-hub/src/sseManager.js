@@ -63,6 +63,10 @@ class SSEManager {
   stop() {
     clearInterval(this.keepAliveTimer);
   }
+
+  reset() {
+    this.clients.clear();
+  }
 }
 
 module.exports = new SSEManager();

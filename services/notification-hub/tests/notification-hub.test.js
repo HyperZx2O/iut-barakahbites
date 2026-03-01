@@ -6,7 +6,7 @@ jest.mock('ioredis', () => {
     return {
       ping: () => Promise.resolve('PONG'),
       subscribe: (channel, cb) => cb && cb(null),
-      on: () => {},
+      on: () => { },
     };
   });
 });
@@ -16,6 +16,7 @@ const app = require('../src/index'); // the Express app exported
 
 afterAll(() => {
   sseManager.stop();
+  sseManager.reset();
 });
 
 describe('Notification Hub API', () => {
