@@ -136,26 +136,26 @@ services:
   student-ui:
     build: ./frontend/student-ui
     container_name: student-ui
-    ports:
-      - "5183:5173"
     environment:
       VITE_GATEWAY_URL: http://localhost:3002
       VITE_NOTIFICATION_URL: http://localhost:3005
       VITE_AUTH_URL: http://localhost:3001
+    stop_grace_period: 10s
+    command: npm run dev -- --host 0.0.0.0
     networks:
       - cafeteria-net
 
   admin-dashboard:
     build: ./frontend/admin-dashboard
     container_name: admin-dashboard
-    ports:
-      - "5184:5174"
     environment:
       VITE_IDENTITY_URL: http://localhost:3001
       VITE_GATEWAY_URL: http://localhost:3002
       VITE_STOCK_URL: http://localhost:3003
       VITE_KITCHEN_URL: http://localhost:3004
       VITE_NOTIFICATION_URL: http://localhost:3005
+    stop_grace_period: 10s
+    command: npm run dev -- --host 0.0.0.0 --port 5174
     networks:
       - cafeteria-net
 
