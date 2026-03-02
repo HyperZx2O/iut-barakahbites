@@ -79,7 +79,7 @@ app.post('/queue/order', async (req, res) => {
   if (isKilled) {
     return res.status(503).json({ error: 'Service killed for chaos testing' });
   }
-  const { orderId, studentId, items } = req.body || {};
+  const { orderId, studentId, items, metadata } = req.body || {};
   if (!orderId || !studentId || !items) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
@@ -95,7 +95,7 @@ app.post('/queue/order', async (req, res) => {
     });
   }
 
-  const payload = { orderId, studentId, items };
+  const payload = { orderId, studentId, items, metadata };
   const job = await kitchenQueue.add('process', payload, {
     attempts: 3,
     backoff: { type: 'exponential', delay: 1000 },
@@ -104,7 +104,7 @@ app.post('/queue/order', async (req, res) => {
   await connection.set(idemKey, job.id, 'EX', 3600); // keep for 1h
 
   // Notify state change
-  notifyHub(studentId, orderId, 'IN_KITCHEN', items);
+  notifyHub(studentId, orderId, 'IN_KITCHEN', items, metadata || {});
 
   // Persist basic kitchen status for this order
   const orderKey = `orders:${orderId}`;
@@ -113,6 +113,7 @@ app.post('/queue/order', async (req, res) => {
     'orderId', orderId,
     'studentId', studentId,
     'status', 'IN_KITCHEN',
+    'metadata', JSON.stringify(metadata || {}),
     'createdAt', createdAt
   );
   await connection.expire(orderKey, 3600);

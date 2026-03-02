@@ -3,7 +3,7 @@
  * Standardizes status updates across microservices
  */
 
-async function notifyHub(studentId, orderId, status, items = []) {
+async function notifyHub(studentId, orderId, status, items = [], metadata = {}) {
     const hubUrl = process.env.NOTIFICATION_HUB_URL || 'http://notification-hub:3005';
     const url = `${hubUrl.replace(/\/+$/, '')}/notify`;
 
@@ -11,7 +11,7 @@ async function notifyHub(studentId, orderId, status, items = []) {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId, orderId, status, items }),
+            body: JSON.stringify({ studentId, orderId, status, items, metadata }),
             // Node 20 global fetch doesn't support timeout natively easily without AbortController
             // but choosing to keep it simple as per current implementation
         });

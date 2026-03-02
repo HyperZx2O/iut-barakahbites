@@ -21,8 +21,17 @@ const worker = new Worker(
     const delay = Math.floor(Math.random() * 4000) + 3000;
     await new Promise((r) => setTimeout(r, delay));
 
-    // Update kitchen status to READY
+    // Read stored metadata (price data) from Redis
     const orderKey = `orders:${orderId}`;
+    let metadata = {};
+    try {
+      const rawMeta = await connection.hget(orderKey, 'metadata');
+      if (rawMeta) metadata = JSON.parse(rawMeta);
+    } catch (e) {
+      console.warn(`Could not read metadata for ${orderId}:`, e.message);
+    }
+
+    // Update kitchen status to READY
     await connection.hset(orderKey,
       'orderId', orderId,
       'studentId', studentId,
@@ -33,7 +42,7 @@ const worker = new Worker(
 
     // Notify Notification Hub
     try {
-      await notifyHub(studentId, orderId, 'READY', items);
+      await notifyHub(studentId, orderId, 'READY', items, metadata);
     } catch (err) {
       console.error(`Failed to notify hub: ${err.message}`);
       throw err; // Allow BullMQ to retry

@@ -18,6 +18,23 @@ const { metricsMiddleware, getMetrics } = require('../shared/metrics');
 const { tracingMiddleware } = require('../shared/tracing');
 const { notifyHub } = require('../shared/notifier');
 
+// Server-side price map — must match frontend menu prices
+const PRICE_MAP = {
+  'iftar-box-1': 250,
+  'iftar-box-2': 250,
+  'jilapi': 10,
+  'dates': 15,
+  'piyaju': 10,
+  'beguni': 15,
+  'chop': 20,
+  'juice': 30,
+  'parata': 10,
+  'chicken-biriyani': 100,
+  'halim': 50,
+  'beef-biriyani': 150,
+  'chola': 20,
+};
+
 // Initialize Redis client with basic error handling (fail‑open)
 const redisClient = new Redis(process.env.REDIS_URL);
 redisClient.on('error', (err) => {
@@ -177,8 +194,17 @@ app.post('/order', jwtAuth, orderRateLimiter, idempotency, async (req, res) => {
   const studentId = req.user.sub || req.user.studentId;
   const orderId = `ord_${randomUUID()}`;
 
+  // Enrich items with price data for receipt generation
+  const itemsWithPrice = items.map(it => ({
+    ...it,
+    unitPrice: PRICE_MAP[it.itemId] ?? 0,
+    subtotal: (PRICE_MAP[it.itemId] ?? 0) * Number(it.quantity),
+  }));
+  const totalPrice = itemsWithPrice.reduce((sum, it) => sum + it.subtotal, 0);
+  const metadata = { itemsWithPrice, totalPrice };
+
   // Notify INITIAL state
-  notifyHub(studentId, orderId, 'PENDING', items);
+  notifyHub(studentId, orderId, 'PENDING', items, metadata);
 
   // Decrement stock for EACH item sequentially — roll back on failure
   const decremented = [];
@@ -259,7 +285,7 @@ app.post('/order', jwtAuth, orderRateLimiter, idempotency, async (req, res) => {
   }
 
   // Notify stock verified
-  notifyHub(studentId, orderId, 'STOCK_VERIFIED', items);
+  notifyHub(studentId, orderId, 'STOCK_VERIFIED', items, metadata);
 
   // Persist order state (store items as JSON string)
   const orderKey = `orders:${orderId}`;
@@ -270,6 +296,7 @@ app.post('/order', jwtAuth, orderRateLimiter, idempotency, async (req, res) => {
       'status', 'PENDING',
       'studentId', studentId || '',
       'items', JSON.stringify(items),
+      'metadata', JSON.stringify(metadata),
       'createdAt', createdAt
     );
     await redisClient.expire(orderKey, 3600);
@@ -289,7 +316,7 @@ app.post('/order', jwtAuth, orderRateLimiter, idempotency, async (req, res) => {
       'x-correlation-id': req.correlationId
     },
   };
-  httpRequest(queueOptions, { orderId, studentId, items }).catch((e) => {
+  httpRequest(queueOptions, { orderId, studentId, items, metadata }).catch((e) => {
     console.error('Failed to publish to Kitchen Queue:', e.message);
   });
 

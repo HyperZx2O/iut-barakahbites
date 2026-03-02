@@ -1,6 +1,6 @@
-# Implementation Plan: Generate Receipt PDF (v2.0)
+# Implementation Plan: Generate Receipt PDF (v2.1)
 
-This plan outlines the steps to implement a neomorphic "Generate Receipt" button in the Student Dashboard and the corresponding logic to create a downloadable PDF receipt.
+This plan outlines the steps to implement a neomorphic "Generate Receipt" button in the Student Dashboard and the corresponding logic to create a downloadable PDF receipt, simplified by removing QR code generation.
 
 ## 1. Overview
 
@@ -10,7 +10,6 @@ When an order status changes to "Order Ready for Pickup" (or is loaded as `READY
 
 - **jspdf**: Lightweight library for client-side PDF generation.
 - **jspdf-autotable**: Plugin for table formatting within the PDF.
-- **qrcode**: (Optional but recommended) For generating a scannable QR code on the receipt.
 
 ## 3. UI/UX Changes (Student Dashboard)
 
@@ -35,8 +34,7 @@ The generated PDF should include:
 4. **Items Table**:
     - Columns: Item Name, Quantity, Price (Unit), Subtotal.
 5. **Summary**: Total Cost (Bold).
-6. **Verification**: A QR code containing the `orderId` for kitchen verification.
-7. **Footer**: "Thank you for ordered! - Team PoweredByPatience"
+6. **Footer**: "Thank you for ordering! - Team PoweredByPatience"
 
 ## 5. Technical Implementation Steps
 
@@ -46,7 +44,7 @@ The generated PDF should include:
 
     ```bash
     cd frontend/student-ui
-    npm install jspdf jspdf-autotable qrcode
+    npm install jspdf jspdf-autotable
     ```
 
 ### Phase B: Backend Data Enrichment (CRITICAL)
@@ -67,7 +65,7 @@ Currently, the notification payload lacks price data.
 ### Phase D: PDF Styling
 
 1. Use `jspdf-autotable` to create the items list.
-2. Use `qrcode` to generate a DataURL and insert it into the PDF using `doc.addImage()`.
+2. Apply the BarakahBites color palette (Red/Cream) to the table headers/styling.
 
 ## 6. Testing Strategy
 
@@ -76,5 +74,5 @@ Currently, the notification payload lacks price data.
 3. Verify the button appears only on the specific `READY` order.
 4. Click the button and check the downloaded PDF for:
     - Accurate pricing and subtotals.
-    - Scannable QR code.
-    - Neomorphic branding elements.
+    - Branding alignment ("IUT BarakahBites").
+    - Professional layout and readable fonts.

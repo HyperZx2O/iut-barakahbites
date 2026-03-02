@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { generateReceipt } from '../utils/pdfGenerator';
 
 const READY_TTL = 5 * 60 * 1000;  // 5 min
 const NON_READY_TTL = 3 * 60 * 1000;  // 3 min
@@ -69,7 +70,7 @@ export default function StatusTracker() {
     es.onmessage = (e) => {
       console.log('[SSE] Message received:', e.data);
       const payload = JSON.parse(e.data);
-      const { orderId, status, timestamp, items, itemName, itemId, quantity } = payload;
+      const { orderId, status, timestamp, items, itemName, itemId, quantity, metadata } = payload;
 
       setOrders(prev => {
         const existing = prev[orderId] || {
@@ -89,6 +90,7 @@ export default function StatusTracker() {
           [orderId]: {
             orderId,
             items: resolvedItems,
+            metadata: metadata || existing.metadata || {},
             events: [...existing.events, { status, timestamp }]
               .sort((a, b) => getStatusWeight(a.status) - getStatusWeight(b.status)),
           },
@@ -164,10 +166,11 @@ export default function StatusTracker() {
         scrollbarWidth: 'thin',
         scrollbarColor: 'rgba(234, 115, 98, 0.3) transparent',
       }}>
-        {orderList.map(({ orderId, items, events }) => {
+        {orderList.map(({ orderId, items, events, metadata }) => {
           const latestStatus = events[events.length - 1]?.status;
           const weight = getStatusWeight(latestStatus);
           const c = COLORS[latestStatus] || COLORS.PENDING;
+          const isReady = latestStatus === 'READY';
 
           let orderLabel = `Order ${orderId?.slice(-6) ?? '...'}`;
           if (items && items.length > 0) {
@@ -285,6 +288,59 @@ export default function StatusTracker() {
                   })}
                 </div>
               </div>
+
+              {/* ── Generate Receipt button (READY only) ── */}
+              {isReady && (
+                <div style={{ padding: '0 14px 12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => generateReceipt({
+                      orderId,
+                      items,
+                      metadata,
+                      studentId: user?.studentId,
+                      events,
+                    })}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '9px 0',
+                      border: 'none',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(145deg, #EA7362 0%, #B04A3C 100%)',
+                      boxShadow: '4px 4px 10px rgba(0,0,0,0.3), inset 1px 1px 2px rgba(255,255,255,0.2)',
+                      color: '#fff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      fontFamily: "'DM Sans', system-ui, sans-serif",
+                      letterSpacing: '0.02em',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                      e.currentTarget.style.filter = 'brightness(1.08)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.filter = 'brightness(1)';
+                    }}
+                  >
+                    {/* FileText icon (inline SVG) */}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    Generate Receipt
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}

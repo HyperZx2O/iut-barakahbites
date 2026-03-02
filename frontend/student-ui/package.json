@@ -13,6 +13,8 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.1",
     "axios": "^1.7.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "recharts": "^2.12.7"
   },
   "devDependencies": {

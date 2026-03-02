@@ -95,13 +95,13 @@ app.get('/events/:studentId', (req, res) => {
 
 // Internal notification endpoint – called by Kitchen Queue
 app.post('/notify', async (req, res) => {
-  const { studentId, orderId, status, items } = req.body;
+  const { studentId, orderId, status, items, metadata } = req.body;
   if (!studentId || !orderId || !status) {
     return res.status(400).json({ error: 'Missing required fields: studentId, orderId, status' });
   }
   // Broadcast to all instances via Redis Pub/Sub as per spec §3.5
   try {
-    const payload = JSON.stringify({ studentId, orderId, status, items, timestamp: new Date().toISOString() });
+    const payload = JSON.stringify({ studentId, orderId, status, items, metadata, timestamp: new Date().toISOString() });
     await redis.publish('notification-hub', payload);
     res.json({ result: 'notified' });
   } catch (err) {
