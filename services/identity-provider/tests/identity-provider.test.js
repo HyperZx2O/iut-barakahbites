@@ -10,8 +10,8 @@ let server;
 
 beforeAll(async () => {
   const db = require('../src/db');
-  // Wait for DB init to complete
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Explicitly initialize database tables for test environment
+  await db.init();
   // Clean up test data
   await db.query('DELETE FROM login_attempts');
   await db.query('DELETE FROM students');

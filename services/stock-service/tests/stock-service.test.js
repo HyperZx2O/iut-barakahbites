@@ -11,22 +11,10 @@ const { pool, redisClient } = require('../src/app');
 let server;
 
 beforeAll(async () => {
-    // Set up the database schema if needed or clean data
+    const { initDb } = require('../src/app');
+    // Use the same initialization logic as the main app
     try {
-        await pool.query(`
-      CREATE TABLE IF NOT EXISTS stock (
-        item_id VARCHAR PRIMARY KEY,
-        name VARCHAR NOT NULL,
-        quantity INT NOT NULL DEFAULT 0,
-        version INT NOT NULL DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS processed_orders (
-        order_id VARCHAR PRIMARY KEY,
-        item_id VARCHAR,
-        quantity INT,
-        processed_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
+        await initDb();
     } catch (err) {
         console.error('Test DB Setup Error:', err);
     }
