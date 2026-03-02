@@ -2,8 +2,8 @@ FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
-RUN chmod +x node_modules/.bin/vite
 COPY . .
-RUN npm run build
+RUN chmod -R +x node_modules/.bin
+RUN npx vite build
 EXPOSE 5174
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5174"]
