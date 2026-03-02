@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { Pool } = require('pg');
 
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://devsprint:devsprint@localhost:54320/cafeteria';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://devsprint:devsprint@localhost:54320/cafeteria_test';
 process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const app = require('../src/app');
