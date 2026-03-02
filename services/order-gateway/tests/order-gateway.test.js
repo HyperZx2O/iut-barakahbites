@@ -57,6 +57,10 @@ function installDefaultMock(stockStatus = 200, stockBody = undefined) {
     const isKitchen = port === '3004' || host.includes('kitchen-queue');
 
     if (isStock) {
+      // If the path is /stock, return a catalog array. Otherwise return the decrement result object.
+      if (options.path === '/stock') {
+        return makeFakeReq(stockStatus, [{ item_id: 'test-item', price: 10 }], callback);
+      }
       return makeFakeReq(stockStatus, defaultStockBody, callback);
     }
     if (isKitchen) {
@@ -146,13 +150,14 @@ describe('Order Gateway API', () => {
         .send({ itemId: 'item-zero' });
 
       expect(res.statusCode).toBe(409);
-      expect(res.body.error).toContain('Item out of stock');
+      expect(res.body.error).toContain('is out of stock');
 
-      // Ensure the Stock Service was NOT called
-      const wasStockCalled = httpRequestSpy.mock.calls.some(
-        (c) => String(c[0].port) === '3003' || (c[0].hostname || '').includes('stock-service')
+      // Ensure the Stock Service DECREMENT was NOT called
+      const wasDecrementCalled = httpRequestSpy.mock.calls.some(
+        (c) => (String(c[0].port) === '3003' || (c[0].hostname || '').includes('stock-service')) &&
+          (c[0].path || '').includes('/decrement')
       );
-      expect(wasStockCalled).toBe(false);
+      expect(wasDecrementCalled).toBe(false);
     });
 
     test('Stock Service Failure (409) - updates cache to 0', async () => {

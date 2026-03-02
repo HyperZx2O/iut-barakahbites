@@ -11,7 +11,7 @@ jest.mock('ioredis', () => {
   });
 });
 
-process.env.REDIS_URL = '';
+process.env.REDIS_URL = 'redis://localhost:6379';
 const app = require('../src/index'); // the Express app exported
 
 afterAll(() => {

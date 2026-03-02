@@ -21,6 +21,110 @@ const COLORS = {
   READY: { dot: '#EA7362', text: '#6ee7b7', bar: '#EA7362' },
 };
 
+const RamadanEmptyState = () => (
+  <div style={{
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '24px',
+    textAlign: 'center',
+    padding: '24px',
+    animation: 'fadeIn 0.8s ease-out forwards',
+  }}>
+    <div style={{
+      position: 'relative',
+      width: '160px',
+      height: '160px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      {/* Background Glow */}
+      <div
+        className="ramadan-pulse-div"
+        style={{
+          position: 'absolute',
+          width: '120px',
+          height: '120px',
+          background: 'radial-gradient(circle, rgba(234, 115, 98, 0.25) 0%, transparent 70%)',
+          borderRadius: '50%',
+        }}
+      />
+
+      <svg width="140" height="140" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ zIndex: 1 }}>
+        {/* Twinkling Stars */}
+        <circle cx="15" cy="20" r="1.5" fill="#FFD6B6" style={{ animation: 'starTwinkle 2.5s infinite ease-in-out' }} />
+        <circle cx="85" cy="25" r="1.2" fill="#FFD6B6" style={{ animation: 'starTwinkle 3s infinite ease-in-out', animationDelay: '0.6s' }} />
+        <circle cx="75" cy="70" r="1" fill="#FFD6B6" style={{ animation: 'starTwinkle 2s infinite ease-in-out', animationDelay: '1.2s' }} />
+        <circle cx="25" cy="80" r="0.8" fill="#FFD6B6" style={{ animation: 'starTwinkle 3.5s infinite ease-in-out', animationDelay: '0.3s' }} />
+
+        {/* Crescent Moon */}
+        <path
+          d="M65 25C65 44.33 49.33 60 30 60C25.15 60 20.55 59.02 16.36 57.25C22.61 64.91 32.2 69.75 42.92 69.75C60.2 69.75 74.21 55.74 74.21 38.46C74.21 28.53 69.59 19.67 62.43 13.92C64.06 17.39 65 21.09 65 25Z"
+          fill="url(#moonGrad)"
+          style={{ filter: 'drop-shadow(0 0 10px rgba(255, 214, 182, 0.25))' }}
+        />
+
+        {/* Ornate Lantern (Fanous) */}
+        <g style={{ filter: 'drop-shadow(0 0 12px rgba(234, 115, 98, 0.35))' }}>
+          {/* Top of lantern */}
+          <path d="M50 35C50 35 48 32 48 30C48 28 50 27 50 27C50 27 52 28 52 30C52 32 50 35 50 35Z" stroke="#EA7362" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M42 42C42 42 45 38 50 38C55 38 58 42 58 42" stroke="#EA7362" strokeWidth="2" strokeLinecap="round" />
+
+          {/* Body */}
+          <path d="M42 42L58 42L62 55L58 78L42 78L38 55L42 42Z" fill="rgba(234, 115, 98, 0.08)" stroke="#EA7362" strokeWidth="2.2" strokeLinejoin="round" />
+
+          {/* Internal Glow */}
+          <circle cx="50" cy="58" r="7" fill="#EA7362">
+            <animate attributeName="opacity" values="0.4;0.7;0.4" dur="2.5s" repeatCount="indefinite" />
+            <animate attributeName="r" values="6.5;8;6.5" dur="2.5s" repeatCount="indefinite" />
+          </circle>
+
+          {/* Bottom */}
+          <path d="M42 78C42 78 45 83 50 83C55 83 58 78 58 78" stroke="#EA7362" strokeWidth="2.2" strokeLinecap="round" />
+
+          {/* Ribs */}
+          <path d="M47 42L47 78M53 42L53 78" stroke="#EA7362" strokeWidth="0.8" opacity="0.5" />
+        </g>
+
+        <defs>
+          <linearGradient id="moonGrad" x1="20" y1="20" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#FFD6B6" />
+            <stop offset="100%" stopColor="#EA7362" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <div style={{ zIndex: 1 }}>
+      <h3 style={{
+        color: '#FFD6B6',
+        fontSize: '1.2rem',
+        fontWeight: 700,
+        marginBottom: '8px',
+        letterSpacing: '-0.01em',
+        fontFamily: "'DM Sans', sans-serif",
+      }}>
+        No active orders
+      </h3>
+      <p style={{
+        color: '#FFD6B6',
+        fontSize: '0.9rem',
+        opacity: 0.7,
+        lineHeight: '1.5',
+        maxWidth: '220px',
+        margin: '0 auto',
+        fontStyle: 'italic',
+        fontFamily: "'Montserrat', sans-serif",
+      }}>
+        Your Iftar box is waiting to be ordered 🌙
+      </p>
+    </div>
+  </div>
+);
+
 /* Shared fixed dimensions — must match OrderForm */
 const BOX_W = '460px';
 const BOX_H = '460px'; // fixed, never grows
@@ -149,11 +253,7 @@ export default function StatusTracker() {
       </div>
 
       {/* Empty state */}
-      {orderList.length === 0 && (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ color: '#FFD6B6', fontSize: '13px', fontStyle: 'italic', opacity: 0.6 }}>No active orders</p>
-        </div>
-      )}
+      {orderList.length === 0 && <RamadanEmptyState />}
 
       {/* Scrollable order cards — this area grows/shrinks, outer box never does */}
       <div style={{
@@ -183,6 +283,7 @@ export default function StatusTracker() {
           return (
             <div
               key={orderId}
+              className="status-card-enter"
               style={{
                 borderRadius: '14px',
                 overflow: 'hidden',
@@ -294,6 +395,7 @@ export default function StatusTracker() {
                 <div style={{ padding: '0 14px 12px' }}>
                   <button
                     type="button"
+                    className="button-press-effect"
                     onClick={() => generateReceipt({
                       orderId,
                       items,

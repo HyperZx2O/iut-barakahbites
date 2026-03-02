@@ -15,6 +15,7 @@ export default function OrderForm() {
   const [expanded, setExpanded] = useState({});
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [lastChangedId, setLastChangedId] = useState(null);
 
   const fetchStock = () =>
     api.get('/items')
@@ -42,8 +43,15 @@ export default function OrderForm() {
 
   useEffect(() => { fetchStock(); }, []);
 
-  const changeQty = (id, val) =>
-    setQuantities(prev => ({ ...prev, [id]: Math.max(0, Number(val)) }));
+  const changeQty = (id, val) => {
+    const newVal = Math.max(0, Number(val));
+    const isIncrease = newVal > (quantities[id] || 0);
+    setQuantities(prev => ({ ...prev, [id]: newVal }));
+    if (isIncrease) {
+      setLastChangedId(id);
+      setTimeout(() => setLastChangedId(null), 600);
+    }
+  };
 
   const toggleExpand = id =>
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -81,7 +89,7 @@ export default function OrderForm() {
     boxShadow: active
       ? '0 0 12px rgba(234,115,98,0.15), 6px 6px 16px rgba(0,0,0,0.5)'
       : '6px 6px 16px rgba(0,0,0,0.45), -3px -3px 10px rgba(183,66,66,0.07)',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
     overflow: 'hidden',
     opacity: outOfStock ? 0.5 : 1,
   });
@@ -89,6 +97,7 @@ export default function OrderForm() {
   const renderQtyStepper = (it, outOfStock) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <button type="button" onClick={() => changeQty(it.id, (quantities[it.id] || 0) - 1)}
+        className="button-press-effect"
         style={{
           width: '28px', height: '28px', borderRadius: '7px',
           border: '1.5px solid rgba(255,214,182,0.25)',
@@ -98,10 +107,15 @@ export default function OrderForm() {
           transition: 'all 0.15s ease',
         }}
       >−</button>
-      <span style={{ minWidth: '26px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#FFD6B6', fontFamily: 'JetBrains Mono, monospace' }}>
+      <span
+        key={`${it.id}-${quantities[it.id]}`}
+        className={lastChangedId === it.id ? 'count-animate' : ''}
+        style={{ minWidth: '26px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#FFD6B6', fontFamily: 'JetBrains Mono, monospace' }}
+      >
         {quantities[it.id] || 0}
       </span>
       <button type="button" disabled={outOfStock} onClick={() => changeQty(it.id, (quantities[it.id] || 0) + 1)}
+        className="button-press-effect"
         style={{
           width: '28px', height: '28px', borderRadius: '7px',
           border: outOfStock ? '1.5px solid rgba(255,214,182,0.08)' : '1.5px solid rgba(234,115,98,0.75)',
@@ -166,7 +180,11 @@ export default function OrderForm() {
             const rows = chunk(it.contents, 3);
 
             return (
-              <div key={it.id} style={itemRowBase(active, outOfStock)}>
+              <div
+                key={it.id}
+                style={itemRowBase(active, outOfStock)}
+                className={lastChangedId === it.id ? 'item-added-glow' : ''}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px' }}>
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFD6B6', fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: '-0.01em' }}>
@@ -217,7 +235,11 @@ export default function OrderForm() {
             const outOfStock = typeof stock === 'number' && stock <= 0;
 
             return (
-              <div key={it.id} style={itemRowBase(active, outOfStock)}>
+              <div
+                key={it.id}
+                style={itemRowBase(active, outOfStock)}
+                className={lastChangedId === it.id ? 'item-added-glow' : ''}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFD6B6', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -237,10 +259,41 @@ export default function OrderForm() {
 
         {/* ── Submit ── */}
         <div style={{ borderTop: '1px solid rgba(255,214,182,0.05)', paddingTop: '16px', flexShrink: 0 }}>
-          <button type="submit" disabled={loading} className="btn-primary"
-            style={{ width: '100%', padding: '12px', fontSize: '14px', borderRadius: '14px' }}>
-            {loading ? 'Processing Order…' : 'Confirm Order'}
-          </button>
+          {(() => {
+            const selectedCount = Object.values(quantities).reduce((acc, qty) => acc + (qty || 0), 0);
+            const isCartEmpty = selectedCount === 0;
+
+            return (
+              <button
+                type="submit"
+                disabled={loading || isCartEmpty}
+                className="btn-primary button-press-effect"
+                title={isCartEmpty ? "Add items to confirm" : ""}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  fontSize: '14px',
+                  borderRadius: '16px',
+                  opacity: isCartEmpty ? 0.35 : 1,
+                  cursor: isCartEmpty ? 'not-allowed' : 'pointer',
+                  /* Enhanced Neomorph Button */
+                  background: isCartEmpty
+                    ? 'rgba(70, 25, 25, 0.3)'
+                    : 'linear-gradient(145deg, rgba(234, 115, 98, 0.1) 0%, rgba(140, 50, 50, 0.4) 100%)',
+                  boxShadow: isCartEmpty
+                    ? 'inset 4px 4px 10px rgba(0,0,0,0.4)'
+                    : '8px 8px 24px rgba(0, 0, 0, 0.7), -6px -6px 20px rgba(234, 115, 98, 0.05), inset 0 1px 0 rgba(255, 214, 182, 0.08)',
+                  border: isCartEmpty
+                    ? '1.5px solid rgba(234, 115, 98, 0.1)'
+                    : '1.5px solid rgba(234, 115, 98, 0.45)',
+                  transform: (loading || isCartEmpty) ? 'none' : undefined,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                {loading ? 'Processing Order…' : 'Confirm Order'}
+              </button>
+            );
+          })()}
         </div>
       </form>
     </section>

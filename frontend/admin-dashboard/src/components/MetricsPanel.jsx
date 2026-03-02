@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../api';
 import {
   LineChart,
@@ -10,6 +10,10 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+// ─── Service definitions ───────────────────────────────────────────────────
+// alertThresholdMs: only defined for services we want to monitor for the alert.
+//   Set to 1000 for Order Gateway (spec requirement).
+//   Left undefined for others so they never trigger the global alert.
 const services = [
   {
     name: 'Stock Service',
@@ -19,6 +23,7 @@ const services = [
     description: 'Stock look-up & update latency',
     color: '#EA7362',
     thresholdMs: 200,
+    // no alertThresholdMs — we don't emit critical alerts for stock service
   },
   {
     name: 'Order Gateway',
@@ -27,9 +32,13 @@ const services = [
     base: import.meta.env.VITE_GATEWAY_URL || 'http://localhost:3002',
     description: 'Order processing & routing latency',
     color: '#a78bfa',
-    thresholdMs: 300,
+    thresholdMs: 1000,       // chart reference line
+    alertThresholdMs: 1000,  // triggers GatewayAlert banner
   },
 ];
+
+// How many poll snapshots = ~30 seconds (we poll every 3 000 ms)
+const ALERT_WINDOW_SNAPSHOTS = 10;
 
 const CustomTooltip = ({ active, payload, label, color }) => {
   if (active && payload && payload.length && payload[0].value != null) {
@@ -54,9 +63,18 @@ const CustomTooltip = ({ active, payload, label, color }) => {
 
 const BOX_MIN_W = '320px';
 
-export default function MetricsPanel() {
+/**
+ * MetricsPanel
+ * Props:
+ *   onAlertChange(serviceName, isAlerting, latencyMs) — called whenever
+ *     a service crosses or clears its alertThresholdMs over the 30s window.
+ */
+export default function MetricsPanel({ onAlertChange }) {
   const [series, setSeries] = useState({});
   const [stats, setStats] = useState({});
+
+  // Track alert state per service so we only call onAlertChange on transitions
+  const alertStateRef = useRef({});
 
   const fetchMetrics = async () => {
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -66,7 +84,9 @@ export default function MetricsPanel() {
         const r = await api.get(`${svc.base}/metrics`);
         const d = r.data;
 
-        const latency = d.averageLatencyMs ?? d.latency ?? 0;
+        // Prefer the backend's 30-second windowed average if available (requires
+        // the updated shared/metrics.js). Fall back to the regular average.
+        const latency = d.windowedAvgLatencyMs ?? d.averageLatencyMs ?? d.latency ?? 0;
         const requests = d.totalRequests ?? d.requestCount ?? null;
         const errors = d.errorCount ?? d.errors ?? null;
         const uptime = d.uptimeSeconds != null ? d.uptimeSeconds : null;
@@ -80,11 +100,27 @@ export default function MetricsPanel() {
 
         setSeries(prev => {
           const arr = prev[svc.name] ?? [];
-          return {
-            ...prev,
-            [svc.name]: [...arr, { time: ts, value: latency }].slice(-20),
-          };
+          const next = [...arr, { time: ts, value: latency }].slice(-20);
+
+          // ── 30-second window alert logic ──────────────────────────────
+          if (svc.alertThresholdMs != null) {
+            const window = next.slice(-ALERT_WINDOW_SNAPSHOTS).filter(p => p.value != null);
+            const windowAvg = window.length
+              ? window.reduce((s, p) => s + p.value, 0) / window.length
+              : 0;
+
+            const isAlerting = window.length >= ALERT_WINDOW_SNAPSHOTS && windowAvg > svc.alertThresholdMs;
+            const wasAlerting = alertStateRef.current[svc.name] ?? false;
+
+            if (isAlerting !== wasAlerting) {
+              alertStateRef.current[svc.name] = isAlerting;
+              onAlertChange?.(svc.name, isAlerting, Math.round(windowAvg));
+            }
+          }
+
+          return { ...prev, [svc.name]: next };
         });
+
       } catch {
         setStats(prev => ({
           ...prev,
@@ -94,6 +130,12 @@ export default function MetricsPanel() {
           ...prev,
           [svc.name]: [...(prev[svc.name] ?? []), { time: ts, value: null }].slice(-20),
         }));
+
+        // Service offline → clear any active alert for it
+        if (svc.alertThresholdMs != null && alertStateRef.current[svc.name]) {
+          alertStateRef.current[svc.name] = false;
+          onAlertChange?.(svc.name, false, 0);
+        }
       }
     }));
   };
@@ -102,7 +144,7 @@ export default function MetricsPanel() {
     fetchMetrics();
     const id = setInterval(fetchMetrics, 3000);
     return () => clearInterval(id);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section
@@ -132,6 +174,13 @@ export default function MetricsPanel() {
           const isHealthy = info.latency != null && info.latency < svc.thresholdMs;
           const latencyColor = info.latency == null ? 'rgba(255,214,182,0.4)' : isHealthy ? '#4ade80' : '#f87171';
 
+          // Card glows red if this service is currently alerting
+          const isAlertActive = svc.alertThresholdMs != null && !isHealthy && info.latency != null;
+          const cardBorderColor = isAlertActive ? 'rgba(239,68,68,0.45)' : `${svc.color}30`;
+          const cardGlow = isAlertActive
+            ? '6px 6px 18px rgba(0,0,0,0.5), 0 0 18px rgba(239,68,68,0.18)'
+            : `6px 6px 18px rgba(0,0,0,0.5), 0 0 14px ${svc.color}10`;
+
           return (
             <div
               key={svc.name}
@@ -139,17 +188,20 @@ export default function MetricsPanel() {
                 borderRadius: '14px',
                 overflow: 'hidden',
                 background: 'linear-gradient(145deg, rgba(140,50,50,0.85) 0%, rgba(100,35,35,0.8) 100%)',
-                border: `1px solid ${svc.color}30`,
-                boxShadow: `6px 6px 18px rgba(0,0,0,0.5), 0 0 14px ${svc.color}10`,
+                border: `1px solid ${cardBorderColor}`,
+                boxShadow: cardGlow,
                 flexShrink: 0,
+                transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
               }}
             >
               {/* Top progress bar — latency health indicator */}
               <div style={{
                 height: '3px',
-                background: `linear-gradient(90deg, ${svc.color} 0%, ${svc.color}60 100%)`,
+                background: isAlertActive
+                  ? 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)'
+                  : `linear-gradient(90deg, ${svc.color} 0%, ${svc.color}60 100%)`,
                 width: info.latency != null ? `${Math.min(100, (info.latency / svc.thresholdMs) * 100)}%` : '0%',
-                transition: 'width 0.8s ease',
+                transition: 'width 0.8s ease, background 0.5s ease',
               }} />
 
               <div style={{ padding: '12px 14px 14px' }}>
@@ -159,7 +211,26 @@ export default function MetricsPanel() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '15px', lineHeight: 1 }}>{svc.icon}</span>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD6B6', fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: 1.2 }}>{svc.label}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD6B6', fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: 1.2 }}>{svc.label}</div>
+                        {/* CRITICAL badge — only for services with an alert threshold */}
+                        {isAlertActive && (
+                          <span style={{
+                            fontSize: '8px',
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            color: '#f87171',
+                            border: '1px solid rgba(248,113,113,0.4)',
+                            borderRadius: '5px',
+                            padding: '1px 5px',
+                            animation: 'none',
+                          }}>
+                            CRITICAL
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: '10px', color: 'rgba(255,214,182,0.4)', fontFamily: 'Montserrat, sans-serif', marginTop: '1px' }}>{svc.description}</div>
                     </div>
                   </div>
@@ -168,7 +239,7 @@ export default function MetricsPanel() {
                       {info.latency != null ? `${info.latency.toFixed(0)}` : '—'}
                     </div>
                     <div style={{ fontSize: '9px', color: 'rgba(255,214,182,0.4)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em' }}>
-                      {info.latency != null ? 'ms avg' : 'offline'}
+                      {info.latency != null ? 'ms / 30s avg' : 'offline'}
                     </div>
                   </div>
                 </div>
@@ -203,7 +274,6 @@ export default function MetricsPanel() {
                       up {Math.round(info.uptime / 60)}m
                     </span>
                   )}
-                  {/* If no stats available at all, show friendly message */}
                   {info.requests == null && info.errors == null && info.p95 == null && (
                     <span style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,214,182,0.3)', letterSpacing: '0.05em' }}>
                       {hasData ? 'live data  ✓' : 'waiting for metrics…'}
@@ -229,14 +299,19 @@ export default function MetricsPanel() {
                       <XAxis dataKey="time" hide />
                       <YAxis hide domain={[0, 'auto']} />
                       <Tooltip content={<CustomTooltip color={svc.color} />} />
+                      {/* Alert threshold reference line (1000ms for Order Gateway) */}
                       {info.latency != null && (
-                        <ReferenceLine y={svc.thresholdMs} stroke={`${svc.color}40`} strokeDasharray="3 3" />
+                        <ReferenceLine
+                          y={svc.thresholdMs}
+                          stroke={isAlertActive ? 'rgba(239,68,68,0.55)' : `${svc.color}40`}
+                          strokeDasharray="3 3"
+                        />
                       )}
                       <Line
                         type="monotone"
                         dataKey="value"
-                        stroke={svc.color}
-                        strokeWidth={1.5}
+                        stroke={isAlertActive ? '#ef4444' : svc.color}
+                        strokeWidth={isAlertActive ? 2 : 1.5}
                         dot={false}
                         isAnimationActive={false}
                         connectNulls={false}
@@ -247,8 +322,8 @@ export default function MetricsPanel() {
 
                 {/* Threshold label */}
                 {hasData && (
-                  <div style={{ marginTop: '4px', fontSize: '8px', color: `${svc.color}70`, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', letterSpacing: '0.05em' }}>
-                    threshold: {svc.thresholdMs} ms
+                  <div style={{ marginTop: '4px', fontSize: '8px', color: isAlertActive ? 'rgba(248,113,113,0.6)' : `${svc.color}70`, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right', letterSpacing: '0.05em' }}>
+                    alert threshold: {svc.thresholdMs} ms
                   </div>
                 )}
               </div>
