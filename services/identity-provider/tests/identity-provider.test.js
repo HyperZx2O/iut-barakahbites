@@ -3,7 +3,7 @@ const http = require('http');
 
 jest.mock('ioredis', () => require('ioredis-mock'));
 
-process.env.DATABASE_URL = 'postgres://devsprint:devsprint@localhost:54320/cafeteria';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://devsprint:devsprint@localhost:54320/cafeteria';
 
 const app = require('../src/app');
 let server;
