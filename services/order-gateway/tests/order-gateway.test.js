@@ -15,7 +15,7 @@ let server;
 let redisClient;
 let httpRequestSpy;
 
-const validToken = signToken({ sub: '210042101', name: 'Test User' });
+const validToken = signToken({ sub: '240041221', name: 'Test User' });
 const authHeader = `Bearer ${validToken}`;
 
 /**

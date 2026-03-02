@@ -18,24 +18,10 @@ const { metricsMiddleware, getMetrics } = require('../shared/metrics');
 const { tracingMiddleware } = require('../shared/tracing');
 const { notifyHub } = require('../shared/notifier');
 
-// Server-side price map — must match frontend menu prices
-const PRICE_MAP = {
-  'iftar-box-1': 250,
-  'iftar-box-2': 250,
-  'jilapi': 10,
-  'dates': 15,
-  'piyaju': 10,
-  'beguni': 15,
-  'chop': 20,
-  'juice': 30,
-  'parata': 10,
-  'chicken-biriyani': 100,
-  'halim': 50,
-  'beef-biriyani': 150,
-  'chola': 20,
-};
+// Server-side price map removed - dynamic pricing fetching directly from stock-service
 
 // Initialize Redis client with basic error handling (fail‑open)
+
 const redisClient = new Redis(process.env.REDIS_URL);
 redisClient.on('error', (err) => {
   console.error('Redis client error (connection may be unavailable):', err.message);
@@ -194,11 +180,29 @@ app.post('/order', jwtAuth, orderRateLimiter, idempotency, async (req, res) => {
   const studentId = req.user.sub || req.user.studentId;
   const orderId = `ord_${randomUUID()}`;
 
+  // Fetch current catalog to get dynamic prices
+  let catalog = [];
+  try {
+    const stockUrl = new URL(`${STOCK_SERVICE_URL}/stock`);
+    const stockResponse = await httpRequest({
+      method: 'GET', hostname: stockUrl.hostname, port: stockUrl.port, path: stockUrl.pathname, headers: { 'x-correlation-id': req.correlationId }
+    });
+    if (stockResponse.statusCode === 200) catalog = stockResponse.body;
+  } catch (err) {
+    console.error('Failed to fetch catalog for pricing', err);
+    return res.status(502).json({ error: 'Failed to access catalog pricing' });
+  }
+
+  const priceMap = {};
+  for (const it of catalog) {
+    priceMap[it.item_id] = it.price || 0;
+  }
+
   // Enrich items with price data for receipt generation
   const itemsWithPrice = items.map(it => ({
     ...it,
-    unitPrice: PRICE_MAP[it.itemId] ?? 0,
-    subtotal: (PRICE_MAP[it.itemId] ?? 0) * Number(it.quantity),
+    unitPrice: priceMap[it.itemId] ?? 0,
+    subtotal: (priceMap[it.itemId] ?? 0) * Number(it.quantity),
   }));
   const totalPrice = itemsWithPrice.reduce((sum, it) => sum + it.subtotal, 0);
   const metadata = { itemsWithPrice, totalPrice };

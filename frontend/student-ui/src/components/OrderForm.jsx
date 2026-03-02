@@ -1,53 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
 
-/* ─── Combo boxes (with expandable dropdown) ─── */
-const COMBO_ITEMS = [
-  {
-    id: 'iftar-box-1',
-    name: 'Box 1',
-    price: 250,
-    contents: [
-      'Dates (03 pcs)',
-      'Banana (01 pc)',
-      'Muri (01 cup)',
-      'SMC Electrolyte Drink - Lemon (01 pc)',
-      'Beef Biriyani (01 pkt)',
-      'Chicken Fry (01 pc)',
-      'Payesh (01 cup)',
-    ],
-  },
-  {
-    id: 'iftar-box-2',
-    name: 'Box 2',
-    price: 250,
-    contents: [
-      'Dates (03 pcs)',
-      'Orange (01 pc)',
-      'Muri (01 cup)',
-      'Murg Polao (01 pkt)',
-      'Beef Halim (01 pkt)',
-      'Samucha (01 pc)',
-      'Labang (01 pc)',
-    ],
-  },
-];
-
-/* ─── Individual items (no dropdown) ─── */
-const INDIVIDUAL_ITEMS = [
-  { id: 'jilapi', name: 'Jilapi', price: 10 },
-  { id: 'dates', name: 'Dates', price: 15 },
-  { id: 'piyaju', name: 'Piyaju', price: 10 },
-  { id: 'beguni', name: 'Beguni', price: 15 },
-  { id: 'chop', name: 'Chop', price: 20 },
-  { id: 'juice', name: 'Juice', price: 30 },
-  { id: 'parata', name: 'Parata', price: 10 },
-  { id: 'chicken-biriyani', name: 'Chicken Biriyani', price: 100 },
-  { id: 'halim', name: 'Halim', price: 50 },
-  { id: 'beef-biriyani', name: 'Beef Biriyani', price: 150 },
-  { id: 'chola', name: 'Chola', price: 20 },
-];
-
 /* Chunk an array into groups of n */
 const chunk = (arr, n) => {
   const out = [];
@@ -55,10 +8,9 @@ const chunk = (arr, n) => {
   return out;
 };
 
-const ALL_ITEMS = [...COMBO_ITEMS, ...INDIVIDUAL_ITEMS];
-
 export default function OrderForm() {
   const [stockMap, setStockMap] = useState({});
+  const [menuItems, setMenuItems] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [expanded, setExpanded] = useState({});
   const [status, setStatus] = useState(null);
@@ -68,8 +20,23 @@ export default function OrderForm() {
     api.get('/items')
       .then(r => {
         const map = {};
-        r.data.forEach(it => { map[it.item_id || it.id] = it.quantity ?? it.stock ?? 0; });
+        const items = [];
+        r.data.forEach(it => {
+          map[it.item_id || it.id] = it.quantity ?? it.stock ?? 0;
+          items.push({
+            id: it.item_id || it.id,
+            name: it.name,
+            price: it.price || 0,
+            contents: Array.isArray(it.contents) ? it.contents : []
+          });
+        });
         setStockMap(map);
+        // Sort items: combo boxes first, then alphabetically
+        setMenuItems(items.sort((a, b) => {
+          if (a.contents.length > 0 && b.contents.length === 0) return -1;
+          if (a.contents.length === 0 && b.contents.length > 0) return 1;
+          return a.name.localeCompare(b.name);
+        }));
       })
       .catch(() => { });
 
@@ -83,7 +50,7 @@ export default function OrderForm() {
 
   const submitOrder = async (e) => {
     e.preventDefault();
-    const selected = ALL_ITEMS.filter(it => quantities[it.id] > 0);
+    const selected = menuItems.filter(it => quantities[it.id] > 0);
     if (!selected.length) { setStatus('Select at least one item.'); return; }
     const orderItems = selected.map(it => ({ itemId: it.id, itemName: it.name, quantity: quantities[it.id] }));
     setLoading(true);
@@ -185,11 +152,13 @@ export default function OrderForm() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px', flex: 1, overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(234,115,98,0.3) transparent' }}>
 
           {/* ── COMBO BOXES ── */}
-          <div style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', color: '#FFD6B6', opacity: 0.45, textTransform: 'uppercase', letterSpacing: '0.12em', paddingLeft: '2px' }}>
-            Combo Boxes
-          </div>
+          {menuItems.some(it => it.contents.length > 0) && (
+            <div style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', color: '#FFD6B6', opacity: 0.45, textTransform: 'uppercase', letterSpacing: '0.12em', paddingLeft: '2px' }}>
+              Combo Boxes
+            </div>
+          )}
 
-          {COMBO_ITEMS.map(it => {
+          {menuItems.filter(it => it.contents.length > 0).map(it => {
             const active = quantities[it.id] > 0;
             const stock = stockMap[it.id];
             const outOfStock = typeof stock === 'number' && stock <= 0;
@@ -236,11 +205,13 @@ export default function OrderForm() {
           })}
 
           {/* ── INDIVIDUAL ITEMS ── */}
-          <div style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', color: '#FFD6B6', opacity: 0.45, textTransform: 'uppercase', letterSpacing: '0.12em', paddingLeft: '2px', marginTop: '4px' }}>
-            À la carte
-          </div>
+          {menuItems.some(it => it.contents.length === 0) && (
+            <div style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', color: '#FFD6B6', opacity: 0.45, textTransform: 'uppercase', letterSpacing: '0.12em', paddingLeft: '2px', marginTop: '4px' }}>
+              À la carte
+            </div>
+          )}
 
-          {INDIVIDUAL_ITEMS.map(it => {
+          {menuItems.filter(it => it.contents.length === 0).map(it => {
             const active = quantities[it.id] > 0;
             const stock = stockMap[it.id];
             const outOfStock = typeof stock === 'number' && stock <= 0;

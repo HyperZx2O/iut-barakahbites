@@ -2,6 +2,7 @@ import Layout from '../components/Layout';
 import HealthGrid from '../components/HealthGrid';
 import MetricsPanel from '../components/MetricsPanel';
 import ChaosControls from '../components/ChaosControls';
+import StockManager from '../components/StockManager';
 
 export default function Dashboard() {
   return (
@@ -16,6 +17,7 @@ export default function Dashboard() {
       }}>
         <HealthGrid />
         <MetricsPanel />
+        <StockManager />
       </div>
 
       {/* Chaos Controls — full width below */}

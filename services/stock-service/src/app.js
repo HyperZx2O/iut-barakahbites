@@ -42,9 +42,15 @@ async function initDb() {
                 item_id VARCHAR PRIMARY KEY,
                 name VARCHAR NOT NULL,
                 quantity INT NOT NULL DEFAULT 0,
+                price INT NOT NULL DEFAULT 0,
+                contents JSONB DEFAULT '[]',
                 version INT NOT NULL DEFAULT 0
             );
         `);
+        // We will alter table if columns are missing for existing databases
+        await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS price INT NOT NULL DEFAULT 0;`);
+        await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS contents JSONB DEFAULT '[]';`);
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS processed_orders (
                 order_id VARCHAR PRIMARY KEY,
@@ -56,26 +62,26 @@ async function initDb() {
 
         // Seed all menu items at 100 stock (resets on restart — safe for demo)
         const seedItems = [
-            ['iftar-box-1', 'Box 1', 100],
-            ['iftar-box-2', 'Box 2', 100],
-            ['jilapi', 'Jilapi', 100],
-            ['dates', 'Dates', 100],
-            ['piyaju', 'Piyaju', 100],
-            ['beguni', 'Beguni', 100],
-            ['chop', 'Chop', 100],
-            ['juice', 'Juice', 100],
-            ['parata', 'Parata', 100],
-            ['chicken-biriyani', 'Chicken Biriyani', 100],
-            ['halim', 'Halim', 100],
-            ['beef-biriyani', 'Beef Biriyani', 100],
-            ['chola', 'Chola', 100],
+            ['iftar-box-1', 'Box 1', 100, 250, JSON.stringify(['Dates (03 pcs)', 'Banana (01 pc)', 'Muri (01 cup)', 'SMC Electrolyte Drink - Lemon (01 pc)', 'Beef Biriyani (01 pkt)', 'Chicken Fry (01 pc)', 'Payesh (01 cup)'])],
+            ['iftar-box-2', 'Box 2', 100, 250, JSON.stringify(['Dates (03 pcs)', 'Orange (01 pc)', 'Muri (01 cup)', 'Murg Polao (01 pkt)', 'Beef Halim (01 pkt)', 'Samucha (01 pc)', 'Labang (01 pc)'])],
+            ['jilapi', 'Jilapi', 100, 10, '[]'],
+            ['dates', 'Dates', 100, 15, '[]'],
+            ['piyaju', 'Piyaju', 100, 10, '[]'],
+            ['beguni', 'Beguni', 100, 15, '[]'],
+            ['chop', 'Chop', 100, 20, '[]'],
+            ['juice', 'Juice', 100, 30, '[]'],
+            ['parata', 'Parata', 100, 10, '[]'],
+            ['chicken-biriyani', 'Chicken Biriyani', 100, 100, '[]'],
+            ['halim', 'Halim', 100, 50, '[]'],
+            ['beef-biriyani', 'Beef Biriyani', 100, 150, '[]'],
+            ['chola', 'Chola', 100, 20, '[]'],
         ];
 
-        for (const [id, name, qty] of seedItems) {
+        for (const [id, name, qty, price, contents] of seedItems) {
             await pool.query(
-                `INSERT INTO stock (item_id, name, quantity, version) VALUES ($1, $2, $3, 1)
-                 ON CONFLICT (item_id) DO UPDATE SET name = EXCLUDED.name, quantity = EXCLUDED.quantity`,
-                [id, name, qty]
+                `INSERT INTO stock (item_id, name, quantity, price, contents, version) VALUES ($1, $2, $3, $4, $5, 1)
+                 ON CONFLICT (item_id) DO UPDATE SET name = EXCLUDED.name, quantity = EXCLUDED.quantity, price = EXCLUDED.price, contents = EXCLUDED.contents`,
+                [id, name, qty, price, contents]
             );
         }
 
@@ -126,7 +132,7 @@ app.get('/metrics', (req, res) => {
 // Get all stock levels
 app.get('/stock', async (req, res) => {
     try {
-        const result = await pool.query('SELECT item_id, quantity, version, name FROM stock');
+        const result = await pool.query('SELECT item_id, quantity, version, name, price, contents FROM stock');
         res.json(result.rows);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
@@ -239,6 +245,74 @@ app.post('/stock/:itemId/replenish', async (req, res) => {
             return res.json({ itemId, added: quantity, remaining: insert.rows[0].quantity });
         }
         res.json({ itemId, added: quantity, remaining: upd.rows[0].quantity });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Set absolute stock quantity
+app.post('/stock/:itemId/set', async (req, res) => {
+    const { itemId } = req.params;
+    const { quantity, name } = req.body;
+    if (!Number.isInteger(quantity) || quantity < 0) return res.status(400).json({ error: 'Non-negative integer quantity required' });
+    try {
+        const upd = await pool.query(
+            'UPDATE stock SET quantity = $1, version = version + 1 WHERE item_id = $2 RETURNING quantity, name',
+            [quantity, itemId]
+        );
+        if (!upd.rowCount) return res.status(404).json({ error: 'Item not found' });
+        res.json({ itemId, quantity: upd.rows[0].quantity, name: upd.rows[0].name });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Create a new stock item
+app.post('/stock', async (req, res) => {
+    const { itemId, name, quantity = 0, price, contents } = req.body;
+    if (!itemId || !name) return res.status(400).json({ error: 'itemId and name required' });
+    if (!Number.isInteger(quantity) || quantity < 0) return res.status(400).json({ error: 'Non-negative integer quantity required' });
+    try {
+        const result = await pool.query(
+            `INSERT INTO stock (item_id, name, quantity, price, contents, version) VALUES ($1, $2, $3, $4, $5, 1)
+             ON CONFLICT (item_id) DO UPDATE SET name = EXCLUDED.name, quantity = EXCLUDED.quantity, price = EXCLUDED.price, contents = EXCLUDED.contents
+             RETURNING item_id, name, quantity, price, contents`,
+            [itemId, name, quantity, price, contents]
+        );
+        res.status(201).json({ item: result.rows[0] });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Update item name/metadata
+app.patch('/stock/:itemId', async (req, res) => {
+    const { itemId } = req.params;
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    try {
+        const upd = await pool.query(
+            'UPDATE stock SET name = $1 WHERE item_id = $2 RETURNING item_id, name, quantity',
+            [name, itemId]
+        );
+        if (!upd.rowCount) return res.status(404).json({ error: 'Item not found' });
+        res.json({ item: upd.rows[0] });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Delete a stock item
+app.delete('/stock/:itemId', async (req, res) => {
+    const { itemId } = req.params;
+    try {
+        const del = await pool.query('DELETE FROM stock WHERE item_id = $1 RETURNING item_id', [itemId]);
+        if (!del.rowCount) return res.status(404).json({ error: 'Item not found' });
+        res.json({ deleted: itemId });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Internal server error' });

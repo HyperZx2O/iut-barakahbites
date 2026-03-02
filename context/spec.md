@@ -70,8 +70,8 @@ Each service must have its own `Dockerfile`, `package.json` (or equivalent), and
 
 ```json
 {
-  "studentId": "210042101",
-  "password": "securepassword"
+  "studentId": "240041221",
+  "password": "admin1"
 }
 ```
 
@@ -81,7 +81,7 @@ Each service must have its own `Dockerfile`, `package.json` (or equivalent), and
 {
   "token": "<signed_jwt>",
   "expiresIn": 3600,
-  "studentId": "210042101"
+  "studentId": "240041221"
 }
 ```
 
@@ -101,8 +101,8 @@ Each service must have its own `Dockerfile`, `package.json` (or equivalent), and
 
 ```json
 {
-  "sub": "210042101",
-  "name": "Ahmed Rahman",
+  "sub": "240041221",
+  "name": "Admin One",
   "iat": 1700000000,
   "exp": 1700003600
 }
@@ -323,7 +323,7 @@ Before decrementing, check if `orderId` already exists in `processed_orders`. If
 ```json
 {
   "orderId": "ord_abc123",
-  "studentId": "210042101",
+  "studentId": "240041221",
   "items": [{ "itemId": "iftar-box-1", "quantity": 1 }]
 }
 ```
@@ -386,7 +386,7 @@ Each state transition must publish an event to the Notification Hub.
 Client connects:
 
 ```javascript
-const source = new EventSource('http://localhost:3005/events/210042101');
+const source = new EventSource('http://localhost:3005/events/240041221');
 source.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
@@ -402,7 +402,7 @@ data: {"orderId":"ord_abc123","status":"READY","timestamp":"2026-03-15T17:32:15Z
 
 ```json
 {
-  "studentId": "210042101",
+  "studentId": "240041221",
   "orderId": "ord_abc123",
   "status": "READY"
 }

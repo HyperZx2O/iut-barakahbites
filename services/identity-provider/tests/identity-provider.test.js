@@ -35,10 +35,10 @@ describe('Identity Provider API', () => {
   test('Register success returns JWT and studentId', async () => {
     const res = await request(server)
       .post('/auth/register')
-      .send({ studentId: '210042101', name: 'Ahmed Rahman', password: 'Password123' });
+      .send({ studentId: '240041221', name: 'Admin One', password: 'admin1' });
     expect(res.statusCode).toBe(201);
     expect(res.body.token).toBeDefined();
-    expect(res.body.studentId).toBe('210042101');
+    expect(res.body.studentId).toBe('240041221');
   });
 
   test('Register requires studentId, name, and password', async () => {
@@ -51,24 +51,24 @@ describe('Identity Provider API', () => {
   test('Duplicate register returns 409', async () => {
     const res = await request(server)
       .post('/auth/register')
-      .send({ studentId: '210042101', name: 'Ahmed Rahman', password: 'Password123' });
+      .send({ studentId: '240041221', name: 'Admin One', password: 'admin1' });
     expect(res.statusCode).toBe(409);
   });
 
   test('Login success returns JWT, expiresIn, and studentId', async () => {
     const res = await request(server)
       .post('/auth/login')
-      .send({ studentId: '210042101', password: 'Password123' });
+      .send({ studentId: '240041221', password: 'admin1' });
     expect(res.statusCode).toBe(200);
     expect(res.body.token).toBeDefined();
     expect(res.body.expiresIn).toBe(3600);
-    expect(res.body.studentId).toBe('210042101');
+    expect(res.body.studentId).toBe('240041221');
   });
 
   test('Invalid login returns 401', async () => {
     const res = await request(server)
       .post('/auth/login')
-      .send({ studentId: '210042101', password: 'wrong' });
+      .send({ studentId: '240041221', password: 'wrong' });
     expect(res.statusCode).toBe(401);
   });
 
@@ -124,7 +124,7 @@ describe('Identity Provider API', () => {
     // Non-safe routes should return 503
     const authRes = await request(server)
       .post('/auth/login')
-      .send({ studentId: '210042101', password: 'Password123' });
+      .send({ studentId: '240041221', password: 'admin1' });
     expect(authRes.statusCode).toBe(503);
 
     // /health should still be accessible (safe route)
@@ -138,7 +138,7 @@ describe('Identity Provider API', () => {
     // Service should be back to normal
     const loginRes = await request(server)
       .post('/auth/login')
-      .send({ studentId: '210042101', password: 'Password123' });
+      .send({ studentId: '240041221', password: 'admin1' });
     expect(loginRes.statusCode).toBe(200);
   });
 });

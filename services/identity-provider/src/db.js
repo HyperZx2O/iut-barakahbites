@@ -31,14 +31,21 @@ async function init() {
     ON login_attempts(student_id, attempted_at);
   `);
 
-  // Seed default student for spec compliance
-  // Password is 'password123'
-  const defaultHash = await bcrypt.hash('password123', 10);
-  await pool.query(
-    'INSERT INTO students (student_id, name, password_hash) VALUES ($1, $2, $3) ON CONFLICT (student_id) DO UPDATE SET password_hash = EXCLUDED.password_hash',
-    ['210042101', 'Ahmed Rahman', defaultHash]
-  );
-  console.log('[SEED] Default student 210042101 seeded/updated successfully');
+  // Seed default students for spec compliance
+  const students = [
+    { id: '240041221', name: 'Admin One', pass: 'admin1' },
+    { id: '240041116', name: 'Admin Two', pass: 'admin2' },
+    { id: '240041117', name: 'Admin Three', pass: 'admin3' },
+  ];
+
+  for (const s of students) {
+    const hash = await bcrypt.hash(s.pass, 10);
+    await pool.query(
+      'INSERT INTO students (student_id, name, password_hash) VALUES ($1, $2, $3) ON CONFLICT (student_id) DO UPDATE SET password_hash = EXCLUDED.password_hash',
+      [s.id, s.name, hash]
+    );
+  }
+  console.log('[SEED] New student credentials seeded successfully');
 }
 
 module.exports = {
