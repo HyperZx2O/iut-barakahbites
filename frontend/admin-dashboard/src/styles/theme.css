@@ -1,0 +1,105 @@
+/* src/styles/theme.css */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Nunito+Sans:wght@400;600&display=swap');
+
+:root {
+  --color-bg: #3A1818;
+  --color-primary: #EA7362;
+  --color-surface: #B74242;
+  /* slightly lighter than bg for neomorph */
+
+  --color-shadow-light: rgba(255, 214, 182, 0.05);
+  --color-shadow-dark: rgba(0, 0, 0, 0.6);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  --neomorph-bg: var(--color-surface);
+  --neomorph-shadow: 12px 12px 24px var(--color-shadow-dark), -8px -8px 24px var(--color-shadow-light);
+  --neomorph-inset: inset 6px 6px 12px var(--color-shadow-dark), inset -6px -6px 12px var(--color-shadow-light);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  font-family: 'Outfit', system-ui, sans-serif;
+  color: #FFD6B6;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Space Grotesk', sans-serif;
+  color: #FFD6B6;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+strong,
+b {
+  font-weight: 700;
+  color: #fff;
+}
+
+.neomorph-card {
+  background: var(--neomorph-bg);
+  border-radius: 12px;
+  box-shadow: var(--neomorph-shadow);
+  padding: var(--space-lg);
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.neomorph-card:hover {
+  transform: translateY(-2px);
+  box-shadow: -4px -4px 12px var(--color-shadow-light), 4px 4px 12px var(--color-shadow-dark);
+}
+
+.neomorph-card:active {
+  transform: translateY(1px);
+}
+
+.neomorph-btn {
+  background: var(--neomorph-bg);
+  color: #fff;
+  border: 1px solid rgba(255, 214, 182, 0.05);
+  border-radius: 8px;
+  padding: var(--space-sm) var(--space-md);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.7rem;
+  cursor: pointer;
+  box-shadow: var(--neomorph-shadow);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.neomorph-btn:hover {
+  transform: translateY(-1px);
+}
+
+.neomorph-btn:active {
+  transform: translateY(1px);
+}
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeIn 0.4s forwards ease-out;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

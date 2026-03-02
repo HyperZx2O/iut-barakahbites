@@ -20,6 +20,8 @@ const { validateEnv } = require('../shared/configValidator');
 validateEnv(['REDIS_URL', 'DATABASE_URL']);
 
 const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+const { tracingMiddleware } = require('../shared/tracing');
+app.use(tracingMiddleware);
 app.use(metricsMiddleware);
 
 if (process.env.NODE_ENV !== 'test') {
@@ -52,16 +54,27 @@ async function initDb() {
             );
         `);
 
-        // Seed default items for spec compliance
+        // Seed all menu items at 100 stock (resets on restart — safe for demo)
         const seedItems = [
-            ['iftar-box-1', 'Standard Iftar Box', 50],
-            ['drink-1', 'Cold Water', 100],
-            ['desert-1', 'Dates Pack', 80]
+            ['iftar-box-1', 'Box 1', 100],
+            ['iftar-box-2', 'Box 2', 100],
+            ['jilapi', 'Jilapi', 100],
+            ['dates', 'Dates', 100],
+            ['piyaju', 'Piyaju', 100],
+            ['beguni', 'Beguni', 100],
+            ['chop', 'Chop', 100],
+            ['juice', 'Juice', 100],
+            ['parata', 'Parata', 100],
+            ['chicken-biriyani', 'Chicken Biriyani', 100],
+            ['halim', 'Halim', 100],
+            ['beef-biriyani', 'Beef Biriyani', 100],
+            ['chola', 'Chola', 100],
         ];
 
         for (const [id, name, qty] of seedItems) {
             await pool.query(
-                'INSERT INTO stock (item_id, name, quantity, version) VALUES ($1, $2, $3, 1) ON CONFLICT (item_id) DO NOTHING',
+                `INSERT INTO stock (item_id, name, quantity, version) VALUES ($1, $2, $3, 1)
+                 ON CONFLICT (item_id) DO UPDATE SET name = EXCLUDED.name, quantity = EXCLUDED.quantity`,
                 [id, name, qty]
             );
         }
@@ -98,10 +111,11 @@ app.get('/health', async (req, res) => {
             status: 'ok',
             service: 'stock-service',
             dependencies: { postgres: 'ok', redis: 'ok' },
-            uptime: getMetrics('stock-service').uptime
+            uptime: getMetrics('stock-service').uptime,
+            alive: !isKilled
         });
     } catch (e) {
-        res.status(503).json({ status: 'degraded', service: 'stock-service', dependencies: { postgres: 'down', redis: 'down' } });
+        res.status(503).json({ status: 'degraded', service: 'stock-service', dependencies: { postgres: 'down', redis: 'down' }, alive: !isKilled });
     }
 });
 

@@ -24,6 +24,8 @@ const { validateEnv } = require('../shared/configValidator');
 validateEnv(['REDIS_URL', 'DATABASE_URL', 'JWT_SECRET']);
 
 const { metricsMiddleware } = require('../shared/metrics');
+const { tracingMiddleware } = require('../shared/tracing');
+app.use(tracingMiddleware);
 app.use(metricsMiddleware);
 
 // Redis client for rate limiting

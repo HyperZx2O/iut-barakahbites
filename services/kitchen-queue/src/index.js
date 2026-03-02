@@ -19,8 +19,10 @@ const { validateEnv } = require('../shared/configValidator');
 validateEnv(['REDIS_URL', 'NOTIFICATION_HUB_URL']);
 
 const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+const { tracingMiddleware } = require('../shared/tracing');
 const { notifyHub } = require('../shared/notifier');
 
+app.use(tracingMiddleware);
 app.use(metricsMiddleware);
 
 // In‑memory flag for chaos kill/revive
@@ -51,6 +53,7 @@ app.get('/health', async (req, res) => {
     service: 'kitchen-queue',
     dependencies: deps,
     uptime: getMetrics('kitchen-queue').uptime,
+    alive: !isKilled
   });
 });
 
@@ -101,7 +104,7 @@ app.post('/queue/order', async (req, res) => {
   await connection.set(idemKey, job.id, 'EX', 3600); // keep for 1h
 
   // Notify state change
-  notifyHub(studentId, orderId, 'IN_KITCHEN');
+  notifyHub(studentId, orderId, 'IN_KITCHEN', items);
 
   // Persist basic kitchen status for this order
   const orderKey = `orders:${orderId}`;

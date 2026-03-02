@@ -39,7 +39,12 @@ const worker = new Worker(
       throw err; // Allow BullMQ to retry
     }
   },
-  { connection }
+  {
+    connection,
+    lockDuration: 30000,     // Time a worker locks a job
+    maxStalledCount: 3,      // Allow retry 3 times if worker crashes
+    stalledInterval: 15000   // Check for stalled jobs every 15s
+  }
 );
 
 console.log('Kitchen Worker started');

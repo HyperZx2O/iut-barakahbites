@@ -5,13 +5,17 @@ const sseManager = require('./sseManager');
 
 const app = express();
 app.use(express.json());
-app.use(require('helmet')());
+app.use(require('helmet')({
+  contentSecurityPolicy: false, // For SSE/dev simplicity
+}));
 
 // CORS config
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+  // Required for SSE over certain proxies (like Nginx)
+  res.setHeader('X-Accel-Buffering', 'no');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
@@ -22,6 +26,8 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 const { validateEnv } = require('../shared/configValidator');
 validateEnv(['REDIS_URL']);
 const { metricsMiddleware, getMetrics } = require('../shared/metrics');
+const { tracingMiddleware } = require('../shared/tracing');
+app.use(tracingMiddleware);
 app.use(metricsMiddleware);
 
 // Health endpoint – checks Redis connectivity
@@ -39,7 +45,8 @@ app.get('/health', async (req, res) => {
     status,
     service: 'notification-hub',
     dependencies: deps,
-    uptime: getMetrics('notification-hub').uptime
+    uptime: getMetrics('notification-hub').uptime,
+    alive: !isKilled
   });
 });
 
@@ -49,7 +56,8 @@ app.get('/metrics', (req, res) => res.json(getMetrics('notification-hub')));
 let isKilled = false;
 const SAFE_ROUTES = ['/health', '/metrics', '/admin/kill', '/admin/revive'];
 app.use((req, res, next) => {
-  if (isKilled && !SAFE_ROUTES.includes(req.path)) {
+  const isSafe = SAFE_ROUTES.includes(req.path) || req.path.startsWith('/events/');
+  if (isKilled && !isSafe) {
     return res.status(503).json({ error: 'Service is down (chaos mode)' });
   }
   next();
@@ -87,13 +95,13 @@ app.get('/events/:studentId', (req, res) => {
 
 // Internal notification endpoint – called by Kitchen Queue
 app.post('/notify', async (req, res) => {
-  const { studentId, orderId, status } = req.body;
+  const { studentId, orderId, status, items } = req.body;
   if (!studentId || !orderId || !status) {
     return res.status(400).json({ error: 'Missing required fields: studentId, orderId, status' });
   }
   // Broadcast to all instances via Redis Pub/Sub as per spec §3.5
   try {
-    const payload = JSON.stringify({ studentId, orderId, status, timestamp: new Date().toISOString() });
+    const payload = JSON.stringify({ studentId, orderId, status, items, timestamp: new Date().toISOString() });
     await redis.publish('notification-hub', payload);
     res.json({ result: 'notified' });
   } catch (err) {
@@ -104,24 +112,23 @@ app.post('/notify', async (req, res) => {
   }
 });
 
-if (process.env.REDIS_URL) {
-  const sub = new Redis(process.env.REDIS_URL);
-  sub.subscribe('notification-hub', (err) => {
-    if (err) console.error('Failed to subscribe to notification-hub channel', err);
-  });
-  sub.on('message', (channel, message) => {
-    if (channel !== 'notification-hub') return;
-    try {
-      const payload = JSON.parse(message);
-      const { studentId } = payload;
-      if (studentId) {
-        sseManager.broadcast(studentId, payload);
-      }
-    } catch (e) {
-      console.error('Invalid notification payload', e);
+// Setup Redis subscriber for cross-instance notifications
+const subscriber = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+subscriber.subscribe('notification-hub', (err) => {
+  if (err) console.error('Failed to subscribe to notification-hub channel', err);
+});
+subscriber.on('message', (channel, message) => {
+  if (channel !== 'notification-hub') return;
+  try {
+    const payload = JSON.parse(message);
+    const { studentId } = payload;
+    if (studentId) {
+      sseManager.broadcast(studentId, payload);
     }
-  });
-}
+  } catch (e) {
+    console.error('Invalid notification payload', e);
+  }
+});
 
 // Start server
 const PORT = process.env.PORT || 3005;

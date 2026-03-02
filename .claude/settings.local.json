@@ -6,7 +6,13 @@
       "Bash(git add:*)",
       "Bash(printf \\\\nvolumes:\\\\n  db-data:\\\\n:*)",
       "Bash(curl:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npm test:*)",
+      "Bash(npm:*)",
+      "Bash(JWT_SECRET=test JWT_SECRET=test REDIS_URL=redis://localhost:6379 npm test:*)",
+      "Bash(JWT_SECRET=supersecretjwt REDIS_URL=redis://localhost:6379 npm:*)",
+      "Bash(JWT_SECRET=supersecretjwt REDIS_URL=redis://localhost:6379 STOCK_SERVICE_URL=http://stock-service:3003 KITCHEN_QUEUE_URL=http://kitchen-queue:3004 NOTIFICATION_HUB_URL=http://notification-hub:3005 npm:*)",
+      "Bash(JWT_SECRET=supersecretjwt REDIS_URL=redis://localhost:6379 STOCK_SERVICE_URL=http://localhost:3003 KITCHEN_QUEUE_URL=http://localhost:3004 NOTIFICATION_HUB_URL=http://localhost:3005 npm:*)"
     ]
   }
 }

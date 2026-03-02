@@ -44,6 +44,7 @@ router.get('/health', async (req, res) => {
   }
 
   const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+  const { isAlive } = require('../serviceState'); // Import here to get current state
   const statusCode = status === 'ok' ? 200 : 503;
 
   return res.status(statusCode).json({
@@ -51,6 +52,7 @@ router.get('/health', async (req, res) => {
     service: 'identity-provider',
     dependencies: deps,
     uptime: uptimeSeconds,
+    alive: isAlive()
   });
 });
 
