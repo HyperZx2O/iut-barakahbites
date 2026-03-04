@@ -8,9 +8,9 @@
 - [X] Phase 4: Stock Service
 - [X] Phase 5: Kitchen Queue Service
 - [X] Phase 6: Notification Hub Service
-- [ ] Phase 7: Frontend UIs (Student UI & Admin Dashboard)
+- [X] Phase 7: Frontend UIs (Student UI & Admin Dashboard)
 - [X] Phase 8: CI/CD Pipeline & Testing
-- [ ] Phase 9: Bonus Features & Cloud Deployment
+- [/] Phase 9: Bonus Features & Cloud Deployment
 - [ ] Phase 10: Documentation, Final Review & Handoff
 
 ---

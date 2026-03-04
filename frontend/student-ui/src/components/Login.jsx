@@ -141,7 +141,7 @@ export default function Login() {
 
         {/* ── Admin portal link ── */}
         <a
-          href={import.meta.env.VITE_ADMIN_URL || 'http://localhost:5174'}
+          href={import.meta.env.VITE_ADMIN_URL || '/admin'}
           style={{ display: 'block', textDecoration: 'none' }}
         >
           <button

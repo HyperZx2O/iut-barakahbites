@@ -7,7 +7,7 @@ import './styles/theme.css';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
+  <BrowserRouter basename="/admin">
     <AdminAuthProvider>
       <App />
     </AdminAuthProvider>

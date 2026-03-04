@@ -143,7 +143,7 @@ export default function AdminLoginPage() {
 
                         {/* ── Student portal link — same style as student page's admin button ── */}
                         <a
-                            href={import.meta.env.VITE_STUDENT_URL || 'http://localhost:3000'}
+                            href={import.meta.env.VITE_STUDENT_URL || '/'}
                             style={{ display: 'block', textDecoration: 'none' }}
                         >
                             <button

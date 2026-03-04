@@ -16,7 +16,10 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             sessionStorage.removeItem('admin_jwt');
-            window.location.href = '/login';
+            // Redirect to the admin login page, which lives at /admin/login
+            // (the BrowserRouter basename="/admin" means the React route /login
+            //  resolves to the absolute path /admin/login).
+            window.location.href = '/admin/login';
         }
         return Promise.reject(error);
     }
