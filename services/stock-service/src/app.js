@@ -33,7 +33,10 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgres://devsprint:devsprint
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // PostgreSQL pool
-const pool = new Pool({ connectionString: DATABASE_URL });
+const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
+});
 
 async function initDb() {
     try {

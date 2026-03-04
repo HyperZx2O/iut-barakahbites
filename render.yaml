@@ -6,15 +6,15 @@ services:
     plan: free
     ipAllowList: []
 
-  # ── Backend Services ──────────────────────────────────────────────────────
+  # ── Backend Services (Monorepo-Aware) ─────────────────────────────────────
 
   # 1. Identity Provider
   - type: web
     name: iut-identity-provider
     plan: free
     runtime: docker
-    rootDir: services/identity-provider
-    dockerfilePath: Dockerfile
+    dockerContext: .
+    dockerfilePath: services/identity-provider/Dockerfile
     envVars:
       - key: PORT
         value: 3001
@@ -35,8 +35,8 @@ services:
     name: iut-stock-service
     plan: free
     runtime: docker
-    rootDir: services/stock-service
-    dockerfilePath: Dockerfile
+    dockerContext: .
+    dockerfilePath: services/stock-service/Dockerfile
     envVars:
       - key: PORT
         value: 3003
@@ -50,7 +50,7 @@ services:
           name: iut-redis
           property: connectionString
 
-  # 3. Notification Hub (deployed before services that depend on its URL)
+  # 3. Notification Hub
   - type: web
     name: iut-notification-hub
     plan: free
@@ -65,7 +65,6 @@ services:
           type: keyvalue
           name: iut-redis
           property: connectionString
-      # Export its own hostname so other services can build a URL
       - key: NOTIFICATION_HUB_HOST
         fromService:
           type: web
@@ -100,8 +99,8 @@ services:
     name: iut-order-gateway
     plan: free
     runtime: docker
-    rootDir: services/order-gateway
-    dockerfilePath: Dockerfile
+    dockerContext: .
+    dockerfilePath: services/order-gateway/Dockerfile
     envVars:
       - key: PORT
         value: 3002
