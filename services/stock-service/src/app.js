@@ -97,8 +97,11 @@ initDb();
 
 // Redis client
 const redisClient = redis.createClient({ url: REDIS_URL });
+redisClient.on('error', (err) => {
+    if (process.env.NODE_ENV !== 'test') console.error('Redis Client Error:', err.message);
+});
 redisClient.connect().catch((err) => {
-    if (process.env.NODE_ENV !== 'test') console.error('Redis error:', err);
+    if (process.env.NODE_ENV !== 'test') console.error('Redis connection failed:', err.message);
 });
 
 // Chaos kill flag
