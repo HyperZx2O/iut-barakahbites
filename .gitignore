@@ -1,11 +1,13 @@
 # Dependencies
 node_modules/
+**/node_modules/
 jspm_packages/
 .npm
 .eslintcache
 
 # Environment & Secrets (NEVER COMMIT THESE)
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
@@ -16,6 +18,8 @@ jspm_packages/
 dist/
 dist-ssr/
 build/
+**/dist/
+**/build/
 *.map
 out/
 
@@ -52,3 +56,11 @@ desktop.ini
 # Temporary files
 /tmp/
 .cache/
+
+# AI Agent folders
+.claude/
+.gemini/
+.agent/
+_agent/
+.agents/
+_agents/
