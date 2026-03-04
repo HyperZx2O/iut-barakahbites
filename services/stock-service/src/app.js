@@ -113,19 +113,27 @@ app.use((req, res, next) => {
 
 // Health endpoint
 app.get('/health', async (req, res) => {
+    const deps = { postgres: 'ok', redis: 'ok' };
+    let status = 'ok';
     try {
         await pool.query('SELECT 1');
-        await redisClient.ping();
-        res.json({
-            status: 'ok',
-            service: 'stock-service',
-            dependencies: { postgres: 'ok', redis: 'ok' },
-            uptime: getMetrics('stock-service').uptime,
-            alive: !isKilled
-        });
-    } catch (e) {
-        res.status(503).json({ status: 'degraded', service: 'stock-service', dependencies: { postgres: 'down', redis: 'down' }, alive: !isKilled });
+    } catch {
+        deps.postgres = 'down';
+        status = 'degraded';
     }
+    try {
+        await redisClient.ping();
+    } catch {
+        deps.redis = 'down';
+        status = 'degraded';
+    }
+    return res.status(200).json({
+        status: status,
+        service: 'stock-service',
+        dependencies: deps,
+        uptime: getMetrics('stock-service').uptime,
+        alive: !isKilled
+    });
 });
 
 app.get('/metrics', (req, res) => {
