@@ -92,4 +92,4 @@ This project was built with cutting-edge AI orchestration:
 
 ---
 
-*Built by [Team Name] for DevSprint Hackathon '26*
+*Built by Team PoweredByPatience for DevSprint Hackathon '26*
