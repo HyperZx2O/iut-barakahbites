@@ -1,8 +1,7 @@
 {
     "build": {
         "builder": "DOCKERFILE",
-        "dockerfilePath": "services/notification-hub/Dockerfile",
-        "context": "../../"
+        "dockerfilePath": "Dockerfile"
     },
     "deploy": {
         "healthcheckPath": "/health",

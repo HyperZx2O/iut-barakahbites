@@ -1,8 +1,7 @@
 {
     "build": {
         "builder": "DOCKERFILE",
-        "dockerfilePath": "services/kitchen-queue/Dockerfile",
-        "context": "../../"
+        "dockerfilePath": "Dockerfile"
     },
     "deploy": {
         "healthcheckPath": "/health",

@@ -135,7 +135,7 @@ subscriber.on('message', (channel, message) => {
 // Start server
 const PORT = process.env.PORT || 3005;
 if (require.main === module) {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`notification-hub listening on ${PORT}`);
   });
 }
