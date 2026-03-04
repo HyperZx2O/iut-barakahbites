@@ -6,15 +6,15 @@ services:
     plan: free
     ipAllowList: []
 
-  # ── Backend Services (Monorepo-Aware) ─────────────────────────────────────
+  # ── Backend Services (Self-Contained) ─────────────────────────────────────
 
   # 1. Identity Provider
   - type: web
     name: iut-identity-provider
     plan: free
     runtime: docker
-    dockerContext: .
-    dockerfilePath: services/identity-provider/Dockerfile
+    rootDir: services/identity-provider
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3001
@@ -35,8 +35,8 @@ services:
     name: iut-stock-service
     plan: free
     runtime: docker
-    dockerContext: .
-    dockerfilePath: services/stock-service/Dockerfile
+    rootDir: services/stock-service
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3003
@@ -55,8 +55,8 @@ services:
     name: iut-notification-hub
     plan: free
     runtime: docker
-    dockerContext: .
-    dockerfilePath: services/notification-hub/Dockerfile
+    rootDir: services/notification-hub
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3005
@@ -65,6 +65,7 @@ services:
           type: keyvalue
           name: iut-redis
           property: connectionString
+      # Export its own hostname so other services can build a URL
       - key: NOTIFICATION_HUB_HOST
         fromService:
           type: web
@@ -76,8 +77,8 @@ services:
     name: iut-kitchen-queue
     plan: free
     runtime: docker
-    dockerContext: .
-    dockerfilePath: services/kitchen-queue/Dockerfile
+    rootDir: services/kitchen-queue
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3004
@@ -99,8 +100,8 @@ services:
     name: iut-order-gateway
     plan: free
     runtime: docker
-    dockerContext: .
-    dockerfilePath: services/order-gateway/Dockerfile
+    rootDir: services/order-gateway
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3002
