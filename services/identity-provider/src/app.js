@@ -30,6 +30,7 @@ app.use(metricsMiddleware);
 
 // Redis client for rate limiting
 const redisClient = new Redis(REDIS_URL);
+redisClient.on('error', (err) => console.error('Redis Rate Limiter Error:', err.message));
 
 // Chaos middleware — safe routes are always accessible per spec §3.5
 const SAFE_ROUTES = ['/admin/kill', '/admin/revive', '/health'];

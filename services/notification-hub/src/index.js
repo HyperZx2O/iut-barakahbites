@@ -22,6 +22,7 @@ app.use((req, res, next) => {
 
 // Redis client (using environment variable REDIS_URL or default)
 const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+redis.on('error', (err) => console.error('Redis Publisher Error:', err.message));
 
 const { validateEnv } = require('../shared/configValidator');
 validateEnv(['REDIS_URL']);
@@ -114,6 +115,7 @@ app.post('/notify', async (req, res) => {
 
 // Setup Redis subscriber for cross-instance notifications
 const subscriber = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+subscriber.on('error', (err) => console.error('Redis Subscriber Error:', err.message));
 subscriber.subscribe('notification-hub', (err) => {
   if (err) console.error('Failed to subscribe to notification-hub channel', err);
 });

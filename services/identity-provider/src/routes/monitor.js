@@ -35,8 +35,13 @@ router.get('/health', async (req, res) => {
 
   // Check Redis
   try {
-    const redis = new Redis(REDIS_URL);
-    await redis.ping();
+    const redis = new Redis(REDIS_URL, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      reconnectOnError: () => false
+    });
+    redis.on('error', () => { }); // Catch-all for connection errors
+    await redis.ping().timeout(2000); // 2s timeout
     redis.disconnect();
   } catch {
     deps.redis = 'down';
