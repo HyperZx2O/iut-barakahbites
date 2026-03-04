@@ -139,9 +139,9 @@ services:
 
   # ── Frontends ─────────────────────────────────────────────────────────────
 
-  # 6. Student UI
+  # 6. Unified Frontend (Portal + Admin)
   - type: web
-    name: iut-student-ui
+    name: iut-barakahbites-ui
     runtime: static
     rootDir: frontend/student-ui
     buildCommand: npm install && npm run build
@@ -161,36 +161,6 @@ services:
           property: host
       - key: VITE_AUTH_URL
         value: https://${VITE_AUTH_HOST}
-      - key: VITE_NOTIFICATION_HOST
-        fromService:
-          type: web
-          name: iut-notification-hub
-          property: host
-      - key: VITE_NOTIFICATION_URL
-        value: https://${VITE_NOTIFICATION_HOST}
-
-  # 7. Admin Dashboard
-  - type: web
-    name: iut-admin-dashboard
-    runtime: static
-    rootDir: frontend/admin-dashboard
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_GATEWAY_HOST
-        fromService:
-          type: web
-          name: iut-order-gateway
-          property: host
-      - key: VITE_GATEWAY_URL
-        value: https://${VITE_GATEWAY_HOST}
-      - key: VITE_IDENTITY_HOST
-        fromService:
-          type: web
-          name: iut-identity-provider
-          property: host
-      - key: VITE_IDENTITY_URL
-        value: https://${VITE_IDENTITY_HOST}
       - key: VITE_STOCK_HOST
         fromService:
           type: web

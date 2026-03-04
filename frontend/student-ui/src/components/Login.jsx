@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { identityApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 export default function Login() {
   const { login } = useAuth();
@@ -140,8 +141,8 @@ export default function Login() {
         </div>
 
         {/* ── Admin portal link ── */}
-        <a
-          href={import.meta.env.VITE_ADMIN_URL || '/admin'}
+        <Link
+          to="/admin/login"
           style={{ display: 'block', textDecoration: 'none' }}
         >
           <button
@@ -191,7 +192,7 @@ export default function Login() {
             </svg>
             Go to Admin Portal →
           </button>
-        </a>
+        </Link>
       </div>
     </form>
   );
