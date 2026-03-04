@@ -1,7 +1,6 @@
 services:
   # ── Infrastructure ────────────────────────────────────────────────────────
 
-  # Redis / Key Value
   - type: keyvalue
     name: iut-redis
     plan: free
@@ -66,6 +65,12 @@ services:
           type: keyvalue
           name: iut-redis
           property: connectionString
+      # Export its own hostname so other services can build a URL
+      - key: NOTIFICATION_HUB_HOST
+        fromService:
+          type: web
+          name: iut-notification-hub
+          property: host
 
   # 4. Kitchen Queue
   - type: web
@@ -82,11 +87,13 @@ services:
           type: keyvalue
           name: iut-redis
           property: connectionString
-      - key: NOTIFICATION_HUB_URL
+      - key: NOTIFICATION_HUB_HOST
         fromService:
           type: web
           name: iut-notification-hub
-          property: url
+          property: host
+      - key: NOTIFICATION_HUB_URL
+        value: https://${NOTIFICATION_HUB_HOST}
 
   # 5. Order Gateway
   - type: web
@@ -108,25 +115,31 @@ services:
           type: web
           name: iut-identity-provider
           envVarKey: JWT_SECRET
-      - key: STOCK_SERVICE_URL
+      - key: STOCK_SERVICE_HOST
         fromService:
           type: web
           name: iut-stock-service
-          property: url
-      - key: KITCHEN_QUEUE_URL
+          property: host
+      - key: STOCK_SERVICE_URL
+        value: https://${STOCK_SERVICE_HOST}
+      - key: KITCHEN_QUEUE_HOST
         fromService:
           type: web
           name: iut-kitchen-queue
-          property: url
-      - key: NOTIFICATION_HUB_URL
+          property: host
+      - key: KITCHEN_QUEUE_URL
+        value: https://${KITCHEN_QUEUE_HOST}
+      - key: NOTIFICATION_HUB_HOST
         fromService:
           type: web
           name: iut-notification-hub
-          property: url
+          property: host
+      - key: NOTIFICATION_HUB_URL
+        value: https://${NOTIFICATION_HUB_HOST}
 
   # ── Frontends ─────────────────────────────────────────────────────────────
 
-  # 6. Student UI — type: web + runtime: static is correct per Render docs
+  # 6. Student UI
   - type: web
     name: iut-student-ui
     plan: free
@@ -135,21 +148,27 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
-      - key: VITE_GATEWAY_URL
+      - key: VITE_GATEWAY_HOST
         fromService:
           type: web
           name: iut-order-gateway
-          property: url
-      - key: VITE_AUTH_URL
+          property: host
+      - key: VITE_GATEWAY_URL
+        value: https://${VITE_GATEWAY_HOST}
+      - key: VITE_AUTH_HOST
         fromService:
           type: web
           name: iut-identity-provider
-          property: url
-      - key: VITE_NOTIFICATION_URL
+          property: host
+      - key: VITE_AUTH_URL
+        value: https://${VITE_AUTH_HOST}
+      - key: VITE_NOTIFICATION_HOST
         fromService:
           type: web
           name: iut-notification-hub
-          property: url
+          property: host
+      - key: VITE_NOTIFICATION_URL
+        value: https://${VITE_NOTIFICATION_HOST}
 
   # 7. Admin Dashboard
   - type: web
@@ -160,31 +179,41 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
-      - key: VITE_GATEWAY_URL
+      - key: VITE_GATEWAY_HOST
         fromService:
           type: web
           name: iut-order-gateway
-          property: url
-      - key: VITE_IDENTITY_URL
+          property: host
+      - key: VITE_GATEWAY_URL
+        value: https://${VITE_GATEWAY_HOST}
+      - key: VITE_IDENTITY_HOST
         fromService:
           type: web
           name: iut-identity-provider
-          property: url
-      - key: VITE_STOCK_URL
+          property: host
+      - key: VITE_IDENTITY_URL
+        value: https://${VITE_IDENTITY_HOST}
+      - key: VITE_STOCK_HOST
         fromService:
           type: web
           name: iut-stock-service
-          property: url
-      - key: VITE_KITCHEN_URL
+          property: host
+      - key: VITE_STOCK_URL
+        value: https://${VITE_STOCK_HOST}
+      - key: VITE_KITCHEN_HOST
         fromService:
           type: web
           name: iut-kitchen-queue
-          property: url
-      - key: VITE_NOTIFICATION_URL
+          property: host
+      - key: VITE_KITCHEN_URL
+        value: https://${VITE_KITCHEN_HOST}
+      - key: VITE_NOTIFICATION_HOST
         fromService:
           type: web
           name: iut-notification-hub
-          property: url
+          property: host
+      - key: VITE_NOTIFICATION_URL
+        value: https://${VITE_NOTIFICATION_HOST}
 
 # ── Postgres ──────────────────────────────────────────────────────────────────
 databases:
