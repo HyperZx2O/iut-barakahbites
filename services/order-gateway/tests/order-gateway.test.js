@@ -8,8 +8,13 @@ jest.mock('ioredis', () => require('ioredis-mock'));
 //   This avoids infinite recursion when falling through to the real implementation.
 const _realHttpRequest = http.request;
 
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../src/config');
 const app = require('../src/app');
-const { signToken } = require('../../identity-provider/src/auth');
+
+function signToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+}
 
 let server;
 let redisClient;
