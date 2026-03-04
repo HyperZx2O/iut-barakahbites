@@ -5,10 +5,14 @@ const http = require('http');
 const { init } = require('./db');
 
 async function start() {
-  await init();
   const server = http.createServer(app);
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`identity-provider listening on ${PORT}`);
+  });
+
+  // Run DB init in background so it doesn't block health checks
+  init().catch(err => {
+    console.error('Background DB initialization failed:', err.message);
   });
 }
 

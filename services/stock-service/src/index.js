@@ -4,10 +4,12 @@ const { initDb } = app;
 const PORT = process.env.PORT || 3003;
 
 async function start() {
-  await initDb();
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`stock-service listening on port ${PORT}`);
   });
+
+  // background init
+  initDb().catch(err => console.error('Stock DB init failed:', err.message));
 }
 
 start().catch(err => {

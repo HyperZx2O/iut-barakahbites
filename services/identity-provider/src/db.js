@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
+  ssl: (DATABASE_URL && !DATABASE_URL.includes('localhost')) ? { rejectUnauthorized: false } : false
 });
 
 // Initialize tables matching spec §12 schema.
