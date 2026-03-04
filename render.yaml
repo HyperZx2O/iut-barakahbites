@@ -2,10 +2,10 @@ services:
   # 1. Identity Provider
   - type: web
     name: iut-identity-provider
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: services/identity-provider/Dockerfile
     plan: free
+    runtime: docker
+    rootDir: services/identity-provider
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3001
@@ -20,14 +20,16 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: NODE_VERSION
+        value: 20
 
   # 2. Stock Service
   - type: web
     name: iut-stock-service
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: services/stock-service/Dockerfile
     plan: free
+    runtime: docker
+    rootDir: services/stock-service
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3003
@@ -40,14 +42,16 @@ services:
           type: redis
           name: iut-redis
           property: connectionString
+      - key: NODE_VERSION
+        value: 20
 
   # 3. Order Gateway
   - type: web
     name: iut-order-gateway
-    runtime: docker
-    dockerContext: .
-    dockerfilePath: services/order-gateway/Dockerfile
     plan: free
+    runtime: docker
+    rootDir: services/order-gateway
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3002
@@ -65,25 +69,27 @@ services:
         fromService:
           type: web
           name: iut-stock-service
-          property: host
+          property: url
       - key: KITCHEN_QUEUE_URL
         fromService:
           type: web
           name: iut-kitchen-queue
-          property: host
+          property: url
       - key: NOTIFICATION_HUB_URL
         fromService:
           type: web
           name: iut-notification-hub
-          property: host
+          property: url
+      - key: NODE_VERSION
+        value: 20
 
-  # 4. Kitchen Queue
+  # 4. Kitchen Queue (Context root required for shared/)
   - type: web
     name: iut-kitchen-queue
+    plan: free
     runtime: docker
     dockerContext: .
     dockerfilePath: services/kitchen-queue/Dockerfile
-    plan: free
     envVars:
       - key: PORT
         value: 3004
@@ -96,15 +102,17 @@ services:
         fromService:
           type: web
           name: iut-notification-hub
-          property: host
+          property: url
+      - key: NODE_VERSION
+        value: 20
 
-  # 5. Notification Hub
+  # 5. Notification Hub (Context root required for shared/)
   - type: web
     name: iut-notification-hub
+    plan: free
     runtime: docker
     dockerContext: .
     dockerfilePath: services/notification-hub/Dockerfile
-    plan: free
     envVars:
       - key: PORT
         value: 3005
@@ -113,10 +121,13 @@ services:
           type: redis
           name: iut-redis
           property: connectionString
+      - key: NODE_VERSION
+        value: 20
 
   # 6. Student UI (Frontend)
   - type: static_site
     name: iut-student-ui
+    rootDir: frontend/student-ui
     buildCommand: npm install && npm run build
     publishDir: dist
     envVars:
@@ -124,21 +135,22 @@ services:
         fromService:
           type: web
           name: iut-order-gateway
-          property: host
+          property: url
       - key: VITE_AUTH_URL
         fromService:
           type: web
           name: iut-identity-provider
-          property: host
+          property: url
       - key: VITE_NOTIFICATION_URL
         fromService:
           type: web
           name: iut-notification-hub
-          property: host
+          property: url
 
   # 7. Admin Dashboard (Frontend)
   - type: static_site
     name: iut-admin-dashboard
+    rootDir: frontend/admin-dashboard
     buildCommand: npm install && npm run build
     publishDir: dist
     envVars:
@@ -146,37 +158,34 @@ services:
         fromService:
           type: web
           name: iut-order-gateway
-          property: host
+          property: url
       - key: VITE_IDENTITY_URL
         fromService:
           type: web
           name: iut-identity-provider
-          property: host
+          property: url
       - key: VITE_STOCK_URL
         fromService:
           type: web
           name: iut-stock-service
-          property: host
+          property: url
       - key: VITE_KITCHEN_URL
         fromService:
           type: web
           name: iut-kitchen-queue
-          property: host
+          property: url
       - key: VITE_NOTIFICATION_URL
         fromService:
           type: web
           name: iut-notification-hub
-          property: host
+          property: url
 
 # Infrastructure
 databases:
   - name: iut-postgres
     plan: free
 
-# Note: Render doesn't offer a free-tier Redis as a "Service". 
-# This blueprint uses their Redis plugin which may require a card on file for 'Starter' plan.
-# If you want 100% free without a card, use Upstash.com manually for Redis.
-# I am including it here for automation completeness.
 redis:
   - name: iut-redis
     plan: free
+    ipAllowList: [] # Required for free tier to allow all internal connections
