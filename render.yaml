@@ -28,7 +28,7 @@ services:
           name: iut-redis
           property: connectionString
       - key: JWT_SECRET
-        generateValue: true
+        value: "barakah_bites_dev_sprint_2026_super_secret"
 
   # 2. Stock Service
   - type: web
@@ -111,10 +111,7 @@ services:
           name: iut-redis
           property: connectionString
       - key: JWT_SECRET
-        fromService:
-          type: web
-          name: iut-identity-provider
-          envVarKey: JWT_SECRET
+        value: "barakah_bites_dev_sprint_2026_super_secret"
       - key: STOCK_SERVICE_HOST
         fromService:
           type: web

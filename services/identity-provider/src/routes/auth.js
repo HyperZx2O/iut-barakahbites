@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { signToken } = require('../auth');
 const { createStudent, findStudent } = require('../students');
 const { increment } = require('./monitor');
+const { init } = require('../db');
 
 const router = express.Router();
 
@@ -52,6 +53,16 @@ router.post('/login', async (req, res) => {
   increment('logins');
   const token = signToken({ sub: tid, name: student.name });
   return res.status(200).json({ token, expiresIn: 3600, studentId: tid });
+});
+
+// Emergency Seed Trigger (Public for now to fix user blockers)
+router.get('/seed', async (req, res) => {
+  try {
+    await init();
+    return res.status(200).json({ msg: 'Database successfully re-seeded with default credentials' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Seeding failed', details: err.message });
+  }
 });
 
 module.exports = router;
