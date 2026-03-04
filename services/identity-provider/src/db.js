@@ -34,9 +34,12 @@ async function init() {
 
   // Seed default students for spec compliance
   const students = [
-    { id: '240041221', name: 'Admin One', pass: 'admin1' },
-    { id: '240041116', name: 'Admin Two', pass: 'admin2' },
-    { id: '240041117', name: 'Admin Three', pass: 'admin3' },
+    { id: '240041221', name: 'Admin One', pass: '240041221' },
+    { id: '240041116', name: 'Admin Two', pass: '240041116' },
+    { id: '240041117', name: 'Admin Three', pass: '240041117' },
+    { id: 'admin1', name: 'Admin One', pass: 'admin1' },
+    { id: 'admin2', name: 'Admin Two', pass: 'admin2' },
+    { id: 'admin3', name: 'Admin Three', pass: 'admin3' },
   ];
 
   for (const s of students) {
