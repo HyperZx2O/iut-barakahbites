@@ -142,7 +142,6 @@ services:
   # 6. Student UI
   - type: web
     name: iut-student-ui
-    plan: free
     runtime: static
     rootDir: frontend/student-ui
     buildCommand: npm install && npm run build
@@ -173,7 +172,6 @@ services:
   # 7. Admin Dashboard
   - type: web
     name: iut-admin-dashboard
-    plan: free
     runtime: static
     rootDir: frontend/admin-dashboard
     buildCommand: npm install && npm run build
